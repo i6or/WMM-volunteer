@@ -406,7 +406,7 @@ export default function AdminDashboard() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <p className="text-sm text-muted-foreground">
-                  Import volunteer opportunities from your Salesforce Program__c and Workshop__c objects.
+                  Import volunteer shifts from Programs with related Volunteer Jobs in Salesforce (V4S).
                 </p>
                 <Button 
                   onClick={syncOpportunities} 
