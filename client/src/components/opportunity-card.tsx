@@ -12,12 +12,12 @@ interface OpportunityCardProps {
 }
 
 const categoryColors = {
-  "Food & Hunger": "bg-green-100 text-green-800",
-  "Education": "bg-blue-100 text-blue-800", 
-  "Environment": "bg-emerald-100 text-emerald-800",
-  "Health & Medicine": "bg-red-100 text-red-800",
-  "Seniors": "bg-purple-100 text-purple-800",
-  "Animals": "bg-orange-100 text-orange-800",
+  "Financial Coaching": "bg-purple-100 text-purple-800",
+  "Workshop Presenting": "bg-blue-100 text-blue-800", 
+  "Program Support": "bg-emerald-100 text-emerald-800",
+  "Administrative Support": "bg-orange-100 text-orange-800",
+  "Event Planning": "bg-pink-100 text-pink-800",
+  "Community Outreach": "bg-teal-100 text-teal-800",
 };
 
 export function OpportunityCard({ opportunity }: OpportunityCardProps) {

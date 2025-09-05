@@ -13,7 +13,7 @@ export function Header() {
             <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
               <Heart className="text-primary-foreground h-4 w-4" />
             </div>
-            <h1 className="text-xl font-semibold text-foreground">VolunteerConnect</h1>
+            <h1 className="text-xl font-semibold text-foreground">Women's Money Matters</h1>
           </Link>
           
           <nav className="hidden md:flex items-center space-x-6">
@@ -24,7 +24,7 @@ export function Header() {
               }`}
               data-testid="nav-opportunities"
             >
-              Opportunities
+              Volunteer Opportunities
             </Link>
             <Link 
               href="/register" 
@@ -33,7 +33,7 @@ export function Header() {
               }`}
               data-testid="nav-register"
             >
-              Register
+              Volunteer Registration
             </Link>
             <Link 
               href="/admin" 

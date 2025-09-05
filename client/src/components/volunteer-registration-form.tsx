@@ -253,12 +253,12 @@ export function VolunteerRegistrationForm() {
                   <FormLabel className="text-base">Areas of Interest (Select all that apply)</FormLabel>
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mt-3">
                     {[
-                      { name: "interestFoodHunger", label: "Food & Hunger" },
-                      { name: "interestEducation", label: "Education" },
-                      { name: "interestEnvironment", label: "Environment" },
-                      { name: "interestHealth", label: "Health & Medicine" },
-                      { name: "interestSeniors", label: "Seniors" },
-                      { name: "interestAnimals", label: "Animals" },
+                      { name: "interestFoodHunger", label: "Financial Coaching" },
+                      { name: "interestEducation", label: "Workshop Presenting" },
+                      { name: "interestEnvironment", label: "Program Support" },
+                      { name: "interestHealth", label: "Administrative Support" },
+                      { name: "interestSeniors", label: "Event Planning" },
+                      { name: "interestAnimals", label: "Community Outreach" },
                     ].map((interest) => (
                       <FormField
                         key={interest.name}

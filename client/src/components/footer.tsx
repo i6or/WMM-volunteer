@@ -10,30 +10,30 @@ export function Footer() {
               <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
                 <Heart className="text-primary-foreground h-4 w-4" />
               </div>
-              <h3 className="text-lg font-semibold text-foreground">VolunteerConnect</h3>
+              <h3 className="text-lg font-semibold text-foreground">Women's Money Matters</h3>
             </div>
             <p className="text-sm text-muted-foreground">
-              Connecting volunteers with meaningful opportunities to make a difference in their communities.
+              Empowering women & girls to improve their financial health to create a more secure future for their families & communities.
             </p>
           </div>
           
           <div>
             <h4 className="font-semibold text-foreground mb-3">Quick Links</h4>
             <ul className="space-y-2 text-sm text-muted-foreground">
-              <li><a href="#" className="hover:text-foreground transition-colors">Browse Opportunities</a></li>
-              <li><a href="#" className="hover:text-foreground transition-colors">Volunteer Registration</a></li>
-              <li><a href="#" className="hover:text-foreground transition-colors">Organization Sign Up</a></li>
-              <li><a href="#" className="hover:text-foreground transition-colors">Contact Support</a></li>
+              <li><a href="#" className="hover:text-foreground transition-colors">Volunteer Opportunities</a></li>
+              <li><a href="#" className="hover:text-foreground transition-colors">Coach Registration</a></li>
+              <li><a href="#" className="hover:text-foreground transition-colors">Our Programs</a></li>
+              <li><a href="#" className="hover:text-foreground transition-colors">Get Involved</a></li>
             </ul>
           </div>
           
           <div>
             <h4 className="font-semibold text-foreground mb-3">Resources</h4>
             <ul className="space-y-2 text-sm text-muted-foreground">
-              <li><a href="#" className="hover:text-foreground transition-colors">Help Center</a></li>
-              <li><a href="#" className="hover:text-foreground transition-colors">Safety Guidelines</a></li>
+              <li><a href="#" className="hover:text-foreground transition-colors">Financial Futures Program</a></li>
+              <li><a href="#" className="hover:text-foreground transition-colors">Life Launch Collective</a></li>
               <li><a href="#" className="hover:text-foreground transition-colors">Privacy Policy</a></li>
-              <li><a href="#" className="hover:text-foreground transition-colors">Terms of Service</a></li>
+              <li><a href="#" className="hover:text-foreground transition-colors">Contact Us</a></li>
             </ul>
           </div>
           
@@ -54,7 +54,7 @@ export function Footer() {
         </div>
         
         <div className="border-t border-border mt-8 pt-4 text-center text-sm text-muted-foreground">
-          <p>&copy; 2025 VolunteerConnect. All rights reserved. Integrated with Salesforce for seamless volunteer management.</p>
+          <p>&copy; 2025 Women's Money Matters. All rights reserved. Integrated with Salesforce for seamless volunteer management.</p>
         </div>
       </div>
     </footer>

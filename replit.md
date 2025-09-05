@@ -1,12 +1,26 @@
-# VolunteerConnect
+# VolunteerConnect - Women's Money Matters
 
 ## Overview
 
-VolunteerConnect is a comprehensive volunteer management platform built with a modern full-stack architecture. The application facilitates volunteer registration, opportunity discovery, and administrative management for nonprofit organizations. It features a React-based frontend with TypeScript, an Express.js backend, and includes integration capabilities with Salesforce for CRM functionality.
+VolunteerConnect has been customized for Women's Money Matters, a nonprofit organization focused on financial empowerment for women and girls living on low incomes. The application facilitates volunteer registration and opportunity discovery specifically for their Financial Futures and Life Launch Collective programs. It features a React-based frontend with TypeScript, an Express.js backend, and includes integration capabilities with Salesforce for CRM functionality.
+
+## Organization Details
+
+**Client**: Women's Money Matters (womensmoneymatters.org)
+**Mission**: Building financial wellness, confidence, and security for women and girls living on low incomes
+**Programs**:
+- Financial Futures: 8-week program for ages 22+
+- Life Launch Collective: 12-week program for ages 16-22
+
+**Volunteer Roles**:
+- Financial Coaches: Provide 1-to-1 mentoring and support
+- Workshop Presenters: Lead financial literacy workshops
+- Program Support: Administrative and event assistance
 
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.
+Color scheme: Purple/magenta branding to match organization identity.
 
 ## System Architecture
 
@@ -69,8 +83,37 @@ Preferred communication style: Simple, everyday language.
 - **Python Integration**: Prepared infrastructure for Salesforce API communication
 - **CRM Sync**: Bidirectional synchronization capabilities for volunteer and opportunity data
 - **Authentication**: Environment-based configuration for Salesforce credentials
+- **Custom Objects**: Configured to work with Women's Money Matters' Salesforce custom objects
 
 ### Database Connection
 - **Neon Database**: Cloud-native PostgreSQL with serverless capabilities
 - **Connection Pooling**: Built-in connection management for optimal performance
 - **Migration System**: Automated schema updates with rollback capabilities
+
+## Recent Customizations (September 2025)
+
+### Branding Updates
+- Updated application name and headers to reflect Women's Money Matters branding
+- Changed color scheme from blue to purple/magenta to match organization identity
+- Updated hero section messaging to focus on financial empowerment mission
+
+### Volunteer Categories
+Replaced generic volunteer categories with organization-specific roles:
+- Financial Coaching (primary volunteer role)
+- Workshop Presenting (for group education sessions)
+- Program Support (administrative assistance)
+- Administrative Support (office and logistics)
+- Event Planning (program events and workshops)
+- Community Outreach (recruitment and engagement)
+
+### Sample Opportunities
+Created realistic volunteer opportunities based on actual programs:
+- Financial Futures Coach sessions (Monday and Saturday)
+- Life Launch Collective presenter roles
+- Administrative support for program logistics
+- All opportunities reflect real program needs and scheduling
+
+### Technical Updates
+- Fixed SelectItem component errors in forms
+- Updated type compatibility for nullable fields
+- Maintained all existing functionality while customizing content

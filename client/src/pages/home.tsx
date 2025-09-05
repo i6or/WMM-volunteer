@@ -51,14 +51,14 @@ export default function Home() {
       <div className="container mx-auto px-4 py-8 max-w-7xl">
         {/* Hero Section */}
         <section className="mb-12">
-          <div className="bg-gradient-to-r from-primary to-blue-600 rounded-xl p-8 text-white relative overflow-hidden">
+          <div className="bg-gradient-to-r from-primary to-purple-600 rounded-xl p-8 text-white relative overflow-hidden">
             <div className="relative z-10">
-              <h2 className="text-3xl font-bold mb-4">Make a Difference in Your Community</h2>
-              <p className="text-blue-100 text-lg mb-6 max-w-2xl">
-                Join thousands of volunteers making an impact. Find opportunities that match your interests and schedule.
+              <h2 className="text-3xl font-bold mb-4">Empower Women & Girls Through Financial Education</h2>
+              <p className="text-purple-100 text-lg mb-6 max-w-2xl">
+                Join our mission to build financial wellness, confidence, and security for women and girls living on low incomes through coaching and workshops.
               </p>
-              <Button className="bg-white text-primary hover:bg-blue-50" data-testid="button-browse">
-                Browse Opportunities
+              <Button className="bg-white text-primary hover:bg-purple-50" data-testid="button-browse">
+                Volunteer Today
               </Button>
             </div>
             <div className="absolute right-0 top-0 w-32 h-32 bg-white/10 rounded-full -translate-y-16 translate-x-16"></div>
@@ -130,10 +130,10 @@ export default function Home() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Categories</SelectItem>
-                    <SelectItem value="Food & Hunger">Food & Hunger</SelectItem>
-                    <SelectItem value="Education">Education</SelectItem>
-                    <SelectItem value="Environment">Environment</SelectItem>
-                    <SelectItem value="Health & Medicine">Health & Medicine</SelectItem>
+                    <SelectItem value="Financial Coaching">Financial Coaching</SelectItem>
+                    <SelectItem value="Workshop Presenting">Workshop Presenting</SelectItem>
+                    <SelectItem value="Program Support">Program Support</SelectItem>
+                    <SelectItem value="Administrative Support">Administrative Support</SelectItem>
                   </SelectContent>
                 </Select>
                 
