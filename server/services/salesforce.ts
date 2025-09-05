@@ -453,15 +453,50 @@ try:
             domain=domain
         )
     
-    opportunities = sf.query("""
-        SELECT Id, Title__c, Description__c, Organization__c, Category__c, 
-               Event_Date__c, Start_Time__c, End_Time__c, Location__c,
-               Total_Spots__c, Filled_Spots__c, Contact_Email__c, Status__c
-        FROM Volunteer_Opportunity__c 
-        WHERE Status__c = 'Active'
-    """)
+    all_opportunities = []
     
-    print(json.dumps(opportunities))
+    # Query Program__c objects for volunteer opportunities
+    try:
+        programs = sf.query("""
+            SELECT Id, Name, Description__c, Start_Date__c, End_Date__c, 
+                   Location__c, Max_Participants__c, Status__c,
+                   Contact_Email__c, Program_Type__c
+            FROM Program__c 
+            WHERE Status__c = 'Active'
+        """)
+        
+        for record in programs['records']:
+            all_opportunities.append({
+                'source': 'Program__c',
+                'record': record
+            })
+    except Exception as e:
+        print(f"Error querying Program__c: {e}")
+    
+    # Query Workshop__c objects for volunteer opportunities  
+    try:
+        workshops = sf.query("""
+            SELECT Id, Name, Description__c, Workshop_Date__c, Start_Time__c,
+                   End_Time__c, Location__c, Max_Attendees__c, Status__c,
+                   Contact_Email__c, Workshop_Type__c
+            FROM Workshop__c
+            WHERE Status__c = 'Active'
+        """)
+        
+        for record in workshops['records']:
+            all_opportunities.append({
+                'source': 'Workshop__c', 
+                'record': record
+            })
+    except Exception as e:
+        print(f"Error querying Workshop__c: {e}")
+    
+    result = {
+        'records': all_opportunities,
+        'totalSize': len(all_opportunities)
+    }
+    
+    print(json.dumps(result))
     
 except ImportError:
     print(json.dumps({"error": "simple-salesforce not installed"}))
@@ -477,26 +512,56 @@ except Exception as e:
       }
 
       // Transform Salesforce data to local format
-      return result.records?.map((record: any) => ({
-        id: record.Id,
-        salesforceId: record.Id,
-        title: record.Title__c,
-        description: record.Description__c,
-        organization: record.Organization__c,
-        category: record.Category__c,
-        date: new Date(record.Event_Date__c),
-        startTime: record.Start_Time__c,
-        endTime: record.End_Time__c,
-        location: record.Location__c,
-        totalSpots: record.Total_Spots__c,
-        filledSpots: record.Filled_Spots__c,
-        contactEmail: record.Contact_Email__c,
-        status: record.Status__c,
-        imageUrl: null,
-        requirements: null,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      })) || [];
+      return result.records?.map((item: any) => {
+        const record = item.record;
+        const source = item.source;
+        
+        if (source === 'Program__c') {
+          return {
+            id: record.Id,
+            salesforceId: record.Id,
+            title: record.Name || 'Program Volunteer Opportunity',
+            description: record.Description__c || 'Help support this program',
+            organization: "Women's Money Matters",
+            category: record.Program_Type__c || 'Program Support',
+            date: new Date(record.Start_Date__c || new Date()),
+            startTime: '9:00 AM', // Default since programs may not have specific times
+            endTime: '5:00 PM',
+            location: record.Location__c || 'TBD',
+            totalSpots: record.Max_Participants__c || 10,
+            filledSpots: 0, // Would need another query to get actual registrations
+            contactEmail: record.Contact_Email__c || 'volunteer@womensmoneymatters.org',
+            status: record.Status__c?.toLowerCase() || 'active',
+            imageUrl: null,
+            requirements: null,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          };
+        } else if (source === 'Workshop__c') {
+          return {
+            id: record.Id,
+            salesforceId: record.Id,
+            title: record.Name || 'Workshop Volunteer Opportunity',
+            description: record.Description__c || 'Help facilitate this workshop',
+            organization: "Women's Money Matters",
+            category: record.Workshop_Type__c || 'Workshop Presenting',
+            date: new Date(record.Workshop_Date__c || new Date()),
+            startTime: record.Start_Time__c || '6:00 PM',
+            endTime: record.End_Time__c || '7:00 PM',
+            location: record.Location__c || 'TBD',
+            totalSpots: record.Max_Attendees__c || 20,
+            filledSpots: 0, // Would need another query to get actual registrations
+            contactEmail: record.Contact_Email__c || 'programs@womensmoneymatters.org',
+            status: record.Status__c?.toLowerCase() || 'active',
+            imageUrl: null,
+            requirements: null,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          };
+        }
+        
+        return null;
+      }).filter(Boolean) || [];
     } catch (error) {
       console.error('Failed to sync opportunities from Salesforce:', error);
       return [];

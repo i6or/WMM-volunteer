@@ -31,6 +31,7 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(false);
   const [selectedObject, setSelectedObject] = useState<string | null>(null);
   const [queryResult, setQueryResult] = useState<any>(null);
+  const [syncResult, setSyncResult] = useState<any>(null);
 
   // Fetch dashboard stats
   const { data: stats } = useQuery({
@@ -88,6 +89,24 @@ export default function AdminDashboard() {
       setQueryResult(result);
     } catch (error) {
       setQueryResult({
+        success: false,
+        message: `Network error: ${error}`
+      });
+    }
+    setLoading(false);
+  };
+
+  const syncOpportunities = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch('/api/salesforce/sync', {
+        method: 'POST',
+        credentials: 'include'
+      });
+      const result = await response.json();
+      setSyncResult(result);
+    } catch (error) {
+      setSyncResult({
         success: false,
         message: `Network error: ${error}`
       });
@@ -374,6 +393,44 @@ export default function AdminDashboard() {
                         <Badge variant="destructive">Failed</Badge>
                         <span>{objectsResult.message}</span>
                       </div>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Sync Opportunities */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Sync Volunteer Opportunities</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <p className="text-sm text-muted-foreground">
+                  Import volunteer opportunities from your Salesforce Program__c and Workshop__c objects.
+                </p>
+                <Button 
+                  onClick={syncOpportunities} 
+                  disabled={loading || !connectionResult?.success}
+                  data-testid="sync-opportunities-button"
+                >
+                  {loading ? "Syncing..." : "Sync from Salesforce"}
+                </Button>
+                
+                {syncResult && (
+                  <div className={`p-4 rounded-lg ${
+                    syncResult.success ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'
+                  }`}>
+                    <div className="flex items-center gap-2 mb-2">
+                      <Badge variant={syncResult.success ? "default" : "destructive"}>
+                        {syncResult.success ? "Success" : "Failed"}
+                      </Badge>
+                      <span className="font-medium">{syncResult.message}</span>
+                    </div>
+                    
+                    {syncResult.count !== undefined && (
+                      <p className="text-sm text-muted-foreground">
+                        {syncResult.count} opportunities synced from Salesforce
+                      </p>
                     )}
                   </div>
                 )}

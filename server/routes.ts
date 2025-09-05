@@ -263,6 +263,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Salesforce sync opportunities endpoint  
+  app.post("/api/salesforce/sync", async (req, res) => {
+    try {
+      const opportunities = await salesforceService.syncOpportunities();
+      
+      // Store synced opportunities in local database
+      let stored = 0;
+      for (const opportunity of opportunities) {
+        try {
+          await storage.createOpportunity(opportunity);
+          stored++;
+        } catch (error) {
+          console.log(`Skipped duplicate opportunity: ${opportunity.title}`);
+        }
+      }
+      
+      res.json({ 
+        success: true,
+        message: `Successfully synced ${opportunities.length} opportunities from Salesforce`,
+        count: opportunities.length,
+        stored: stored
+      });
+    } catch (error) {
+      console.error('Sync failed:', error);
+      res.status(500).json({ 
+        success: false, 
+        message: `Sync failed: ${error}` 
+      });
+    }
+  });
+
   // Salesforce sync endpoint
   app.post("/api/sync/salesforce", async (req, res) => {
     try {
