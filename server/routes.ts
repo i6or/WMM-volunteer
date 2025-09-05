@@ -266,24 +266,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Salesforce sync opportunities endpoint  
   app.post("/api/salesforce/sync", async (req, res) => {
     try {
-      const opportunities = await salesforceService.syncOpportunities();
+      // Use V4S sync for volunteer opportunities
+      const opportunities = await salesforceService.syncV4SOpportunities();
       
       // Store synced opportunities in local database
       let stored = 0;
+      let skipped = 0;
       for (const opportunity of opportunities) {
         try {
           await storage.createOpportunity(opportunity);
           stored++;
         } catch (error) {
           console.log(`Skipped duplicate opportunity: ${opportunity.title}`);
+          skipped++;
         }
       }
       
       res.json({ 
         success: true,
-        message: `Successfully synced ${opportunities.length} opportunities from Salesforce`,
+        message: `Successfully synced ${opportunities.length} volunteer shifts from V4S`,
         count: opportunities.length,
-        stored: stored
+        stored: stored,
+        skipped: skipped
       });
     } catch (error) {
       console.error('Sync failed:', error);

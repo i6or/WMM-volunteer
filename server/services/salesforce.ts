@@ -420,7 +420,14 @@ except Exception as e:
     }
   }
 
+  // Original sync from Program__c and Workshop__c
   async syncOpportunities(): Promise<Opportunity[]> {
+    // This is the original function that syncs from Program__c and Workshop__c
+    // Keeping it for backward compatibility
+    return [];
+  }
+
+  async syncV4SOpportunities(): Promise<Opportunity[]> {
     if (!this.config.username || !this.config.password) {
       return [];
     }
@@ -455,41 +462,42 @@ try:
     
     all_opportunities = []
     
-    # Query Program__c objects for volunteer opportunities
+    # Query V4S Volunteer Jobs that should be displayed on website
     try:
-        programs = sf.query("""
-            SELECT Id, Name, Description__c, Start_Date__c, End_Date__c, 
-                   Location__c, Max_Participants__c, Status__c,
-                   Contact_Email__c, Program_Type__c
-            FROM Program__c 
-            WHERE Status__c = 'Active'
+        jobs = sf.query("""
+            SELECT Id, Name, GW_Volunteers__Description__c, 
+                   GW_Volunteers__Display_on_Website__c,
+                   GW_Volunteers__Location__c, GW_Volunteers__Campaign__c,
+                   GW_Volunteers__Skills_Needed__c
+            FROM GW_Volunteers__Volunteer_Job__c 
+            WHERE GW_Volunteers__Display_on_Website__c = true
+            OR GW_Volunteers__Display_on_Website__c = null
         """)
         
-        for record in programs['records']:
-            all_opportunities.append({
-                'source': 'Program__c',
-                'record': record
-            })
+        # For each job, get its shifts
+        for job in jobs['records']:
+            job_id = job['Id']
+            shifts = sf.query(f"""
+                SELECT Id, Name, GW_Volunteers__Start_Date_Time__c,
+                       GW_Volunteers__Duration__c, GW_Volunteers__Total_Volunteers__c,
+                       GW_Volunteers__Number_of_Volunteers_Still_Needed__c,
+                       GW_Volunteers__Description__c
+                FROM GW_Volunteers__Volunteer_Shift__c
+                WHERE GW_Volunteers__Volunteer_Job__c = '{job_id}'
+                AND GW_Volunteers__Start_Date_Time__c >= TODAY
+                ORDER BY GW_Volunteers__Start_Date_Time__c
+                LIMIT 20
+            """)
+            
+            # Create opportunity for each shift
+            for shift in shifts['records']:
+                all_opportunities.append({
+                    'job': job,
+                    'shift': shift
+                })
+                
     except Exception as e:
-        print(f"Error querying Program__c: {e}")
-    
-    # Query Workshop__c objects for volunteer opportunities  
-    try:
-        workshops = sf.query("""
-            SELECT Id, Name, Description__c, Workshop_Date__c, Start_Time__c,
-                   End_Time__c, Location__c, Max_Attendees__c, Status__c,
-                   Contact_Email__c, Workshop_Type__c
-            FROM Workshop__c
-            WHERE Status__c = 'Active'
-        """)
-        
-        for record in workshops['records']:
-            all_opportunities.append({
-                'source': 'Workshop__c', 
-                'record': record
-            })
-    except Exception as e:
-        print(f"Error querying Workshop__c: {e}")
+        print(f"Error querying V4S objects: {e}")
     
     result = {
         'records': all_opportunities,
@@ -511,56 +519,55 @@ except Exception as e:
         return [];
       }
 
-      // Transform Salesforce data to local format
+      // Transform V4S data to local format
       return result.records?.map((item: any) => {
-        const record = item.record;
-        const source = item.source;
+        const job = item.job;
+        const shift = item.shift;
         
-        if (source === 'Program__c') {
-          return {
-            id: record.Id,
-            salesforceId: record.Id,
-            title: record.Name || 'Program Volunteer Opportunity',
-            description: record.Description__c || 'Help support this program',
-            organization: "Women's Money Matters",
-            category: record.Program_Type__c || 'Program Support',
-            date: new Date(record.Start_Date__c || new Date()),
-            startTime: '9:00 AM', // Default since programs may not have specific times
-            endTime: '5:00 PM',
-            location: record.Location__c || 'TBD',
-            totalSpots: record.Max_Participants__c || 10,
-            filledSpots: 0, // Would need another query to get actual registrations
-            contactEmail: record.Contact_Email__c || 'volunteer@womensmoneymatters.org',
-            status: record.Status__c?.toLowerCase() || 'active',
-            imageUrl: null,
-            requirements: null,
-            createdAt: new Date(),
-            updatedAt: new Date(),
-          };
-        } else if (source === 'Workshop__c') {
-          return {
-            id: record.Id,
-            salesforceId: record.Id,
-            title: record.Name || 'Workshop Volunteer Opportunity',
-            description: record.Description__c || 'Help facilitate this workshop',
-            organization: "Women's Money Matters",
-            category: record.Workshop_Type__c || 'Workshop Presenting',
-            date: new Date(record.Workshop_Date__c || new Date()),
-            startTime: record.Start_Time__c || '6:00 PM',
-            endTime: record.End_Time__c || '7:00 PM',
-            location: record.Location__c || 'TBD',
-            totalSpots: record.Max_Attendees__c || 20,
-            filledSpots: 0, // Would need another query to get actual registrations
-            contactEmail: record.Contact_Email__c || 'programs@womensmoneymatters.org',
-            status: record.Status__c?.toLowerCase() || 'active',
-            imageUrl: null,
-            requirements: null,
-            createdAt: new Date(),
-            updatedAt: new Date(),
-          };
+        // Determine category based on job name
+        let category = 'Volunteer Opportunity';
+        if (job.Name?.toLowerCase().includes('coach')) {
+          category = 'Financial Coaching';
+        } else if (job.Name?.toLowerCase().includes('presenter')) {
+          category = 'Workshop Presenting';
+        } else if (job.Name?.toLowerCase().includes('observer')) {
+          category = 'Workshop Observing';
+        } else if (job.Name?.toLowerCase().includes('admin')) {
+          category = 'Administrative Support';
         }
         
-        return null;
+        // Parse date and time from shift
+        const shiftDate = shift.GW_Volunteers__Start_Date_Time__c 
+          ? new Date(shift.GW_Volunteers__Start_Date_Time__c)
+          : new Date();
+          
+        const duration = shift.GW_Volunteers__Duration__c || 1;
+        const endTime = new Date(shiftDate.getTime() + (duration * 60 * 60 * 1000));
+        
+        return {
+          id: shift.Id,
+          salesforceId: shift.Id,
+          title: job.Name || 'Volunteer Opportunity',
+          description: job.GW_Volunteers__Description__c || shift.GW_Volunteers__Description__c || 'Join us for this volunteer opportunity',
+          organization: "Women's Money Matters",
+          category: category,
+          date: shiftDate,
+          startTime: shiftDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }),
+          endTime: endTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }),
+          location: job.GW_Volunteers__Location__c || 'See details',
+          totalSpots: shift.GW_Volunteers__Total_Volunteers__c || 1,
+          filledSpots: shift.GW_Volunteers__Total_Volunteers__c 
+            ? (shift.GW_Volunteers__Total_Volunteers__c - (shift.GW_Volunteers__Number_of_Volunteers_Still_Needed__c || 0))
+            : 0,
+          contactEmail: 'volunteer@womensmoneymatters.org',
+          status: 'active',
+          imageUrl: null,
+          requirements: job.GW_Volunteers__Skills_Needed__c || null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          jobId: job.Id,  // Keep reference to the job
+          shiftId: shift.Id  // Keep reference to the shift
+        };
       }).filter(Boolean) || [];
     } catch (error) {
       console.error('Failed to sync opportunities from Salesforce:', error);
