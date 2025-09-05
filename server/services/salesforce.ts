@@ -209,8 +209,6 @@ except Exception as e:
       return { success: false, message: 'Salesforce credentials not configured' };
     }
 
-    console.log(`[DEBUG] Domain from config: "${this.config.domain}"`);
-
     const scriptContent = `
 import sys
 import os

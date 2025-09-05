@@ -572,8 +572,8 @@ class DatabaseStorageWithInit extends DatabaseStorage {
     if (this.initialized) return;
     
     try {
-      // Check if we have any opportunities
-      const existingOpportunities = await this.getAllOpportunities();
+      // Check if we have any opportunities - query directly to avoid infinite loop
+      const existingOpportunities = await db.select().from(opportunities).limit(1);
       
       if (existingOpportunities.length === 0) {
         console.log('Initializing database with sample opportunities...');
