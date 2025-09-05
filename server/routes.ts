@@ -229,10 +229,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Salesforce connection test endpoint
   app.get("/api/salesforce/test", async (req, res) => {
+    console.log("[DEBUG] Salesforce test endpoint hit");
     try {
       const result = await salesforceService.testConnection();
+      console.log("[DEBUG] Salesforce test result:", result);
+      res.setHeader('Content-Type', 'application/json');
       res.json(result);
     } catch (error) {
+      console.log("[DEBUG] Salesforce test error:", error);
       res.status(500).json({ success: false, message: "Connection test failed" });
     }
   });
