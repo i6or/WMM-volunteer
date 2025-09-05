@@ -64,18 +64,18 @@ try:
     from simple_salesforce import Salesforce
     import json
     
-    # Handle custom domain vs standard domain
+    # Handle custom lightning domain
     domain = '${this.config.domain}'
     if 'lightning.force.com' in domain:
-        # Full custom domain provided
+        # For custom My Domain, we need to use the instance_url parameter
         sf = Salesforce(
             username='${this.config.username}',
             password='${this.config.password}',
             security_token='${this.config.securityToken}',
-            domain=domain
+            instance_url=f'https://{domain}'
         )
     else:
-        # Standard domain (login/test) or short custom domain
+        # Standard domain (login/test)
         sf = Salesforce(
             username='${this.config.username}',
             password='${this.config.password}',
@@ -142,18 +142,18 @@ try:
     import json
     from datetime import datetime
     
-    # Handle custom domain vs standard domain
+    # Handle custom lightning domain
     domain = '${this.config.domain}'
     if 'lightning.force.com' in domain:
-        # Full custom domain provided
+        # For custom My Domain, we need to use the instance_url parameter
         sf = Salesforce(
             username='${this.config.username}',
             password='${this.config.password}',
             security_token='${this.config.securityToken}',
-            domain=domain
+            instance_url=f'https://{domain}'
         )
     else:
-        # Standard domain (login/test) or short custom domain
+        # Standard domain (login/test)
         sf = Salesforce(
             username='${this.config.username}',
             password='${this.config.password}',
@@ -218,18 +218,18 @@ try:
     from simple_salesforce import Salesforce
     import json
     
-    # Handle custom domain vs standard domain
+    # Handle custom lightning domain
     domain = '${this.config.domain}'
     if 'lightning.force.com' in domain:
-        # Full custom domain provided
+        # For custom My Domain, we need to use the instance_url parameter
         sf = Salesforce(
             username='${this.config.username}',
             password='${this.config.password}',
             security_token='${this.config.securityToken}',
-            domain=domain
+            instance_url=f'https://{domain}'
         )
     else:
-        # Standard domain (login/test) or short custom domain
+        # Standard domain (login/test)
         sf = Salesforce(
             username='${this.config.username}',
             password='${this.config.password}',
@@ -277,18 +277,18 @@ try:
     from simple_salesforce import Salesforce
     import json
     
-    # Handle custom domain vs standard domain
+    # Handle custom lightning domain
     domain = '${this.config.domain}'
     if 'lightning.force.com' in domain:
-        # Full custom domain provided
+        # For custom My Domain, we need to use the instance_url parameter
         sf = Salesforce(
             username='${this.config.username}',
             password='${this.config.password}',
             security_token='${this.config.securityToken}',
-            domain=domain
+            instance_url=f'https://{domain}'
         )
     else:
-        # Standard domain (login/test) or short custom domain
+        # Standard domain (login/test)
         sf = Salesforce(
             username='${this.config.username}',
             password='${this.config.password}',
@@ -364,18 +364,18 @@ try:
     from simple_salesforce import Salesforce
     import json
     
-    # Handle custom domain vs standard domain
+    # Handle custom lightning domain
     domain = '${this.config.domain}'
     if 'lightning.force.com' in domain:
-        # Full custom domain provided
+        # For custom My Domain, we need to use the instance_url parameter
         sf = Salesforce(
             username='${this.config.username}',
             password='${this.config.password}',
             security_token='${this.config.securityToken}',
-            domain=domain
+            instance_url=f'https://{domain}'
         )
     else:
-        # Standard domain (login/test) or short custom domain
+        # Standard domain (login/test)
         sf = Salesforce(
             username='${this.config.username}',
             password='${this.config.password}',
@@ -422,18 +422,18 @@ try:
     from simple_salesforce import Salesforce
     import json
     
-    # Handle custom domain vs standard domain
+    # Handle custom lightning domain
     domain = '${this.config.domain}'
     if 'lightning.force.com' in domain:
-        # Full custom domain provided
+        # For custom My Domain, we need to use the instance_url parameter
         sf = Salesforce(
             username='${this.config.username}',
             password='${this.config.password}',
             security_token='${this.config.securityToken}',
-            domain=domain
+            instance_url=f'https://{domain}'
         )
     else:
-        # Standard domain (login/test) or short custom domain
+        # Standard domain (login/test)
         sf = Salesforce(
             username='${this.config.username}',
             password='${this.config.password}',
