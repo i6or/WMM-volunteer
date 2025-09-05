@@ -495,6 +495,7 @@ try:
                 FROM GW_Volunteers__Volunteer_Shift__c
                 WHERE GW_Volunteers__Volunteer_Job__c = '{job_id}'
                 AND GW_Volunteers__Start_Date_Time__c != null
+                AND GW_Volunteers__Start_Date_Time__c >= 2025-01-01T00:00:00Z
                 ORDER BY GW_Volunteers__Start_Date_Time__c
                 LIMIT 50
             """)
