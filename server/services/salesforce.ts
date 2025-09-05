@@ -64,12 +64,24 @@ try:
     from simple_salesforce import Salesforce
     import json
     
-    sf = Salesforce(
-        username='${this.config.username}',
-        password='${this.config.password}',
-        security_token='${this.config.securityToken}',
-        domain='${this.config.domain}'
-    )
+    # Handle custom domain vs standard domain
+    domain = '${this.config.domain}'
+    if 'lightning.force.com' in domain:
+        # Full custom domain provided
+        sf = Salesforce(
+            username='${this.config.username}',
+            password='${this.config.password}',
+            security_token='${this.config.securityToken}',
+            domain=domain
+        )
+    else:
+        # Standard domain (login/test) or short custom domain
+        sf = Salesforce(
+            username='${this.config.username}',
+            password='${this.config.password}',
+            security_token='${this.config.securityToken}',
+            domain=domain
+        )
     
     volunteer_data = {
         'First_Name__c': '${volunteer.firstName.replace(/'/g, "\\'") || ''}',
@@ -130,12 +142,24 @@ try:
     import json
     from datetime import datetime
     
-    sf = Salesforce(
-        username='${this.config.username}',
-        password='${this.config.password}',
-        security_token='${this.config.securityToken}',
-        domain='${this.config.domain}'
-    )
+    # Handle custom domain vs standard domain
+    domain = '${this.config.domain}'
+    if 'lightning.force.com' in domain:
+        # Full custom domain provided
+        sf = Salesforce(
+            username='${this.config.username}',
+            password='${this.config.password}',
+            security_token='${this.config.securityToken}',
+            domain=domain
+        )
+    else:
+        # Standard domain (login/test) or short custom domain
+        sf = Salesforce(
+            username='${this.config.username}',
+            password='${this.config.password}',
+            security_token='${this.config.securityToken}',
+            domain=domain
+        )
     
     opportunity_data = {
         'Title__c': '${opportunity.title.replace(/'/g, "\\'") || ''}',
@@ -194,12 +218,24 @@ try:
     from simple_salesforce import Salesforce
     import json
     
-    sf = Salesforce(
-        username='${this.config.username}',
-        password='${this.config.password}',
-        security_token='${this.config.securityToken}',
-        domain='${this.config.domain}'
-    )
+    # Handle custom domain vs standard domain
+    domain = '${this.config.domain}'
+    if 'lightning.force.com' in domain:
+        # Full custom domain provided
+        sf = Salesforce(
+            username='${this.config.username}',
+            password='${this.config.password}',
+            security_token='${this.config.securityToken}',
+            domain=domain
+        )
+    else:
+        # Standard domain (login/test) or short custom domain
+        sf = Salesforce(
+            username='${this.config.username}',
+            password='${this.config.password}',
+            security_token='${this.config.securityToken}',
+            domain=domain
+        )
     
     # Test connection by getting user info
     user_info = sf.query("SELECT Id, Name, Email FROM User WHERE Username = '${this.config.username}' LIMIT 1")
@@ -241,12 +277,24 @@ try:
     from simple_salesforce import Salesforce
     import json
     
-    sf = Salesforce(
-        username='${this.config.username}',
-        password='${this.config.password}',
-        security_token='${this.config.securityToken}',
-        domain='${this.config.domain}'
-    )
+    # Handle custom domain vs standard domain
+    domain = '${this.config.domain}'
+    if 'lightning.force.com' in domain:
+        # Full custom domain provided
+        sf = Salesforce(
+            username='${this.config.username}',
+            password='${this.config.password}',
+            security_token='${this.config.securityToken}',
+            domain=domain
+        )
+    else:
+        # Standard domain (login/test) or short custom domain
+        sf = Salesforce(
+            username='${this.config.username}',
+            password='${this.config.password}',
+            security_token='${this.config.securityToken}',
+            domain=domain
+        )
     
     # Get all custom objects that might contain volunteer opportunities
     objects_desc = sf.describe()
@@ -316,12 +364,24 @@ try:
     from simple_salesforce import Salesforce
     import json
     
-    sf = Salesforce(
-        username='${this.config.username}',
-        password='${this.config.password}',
-        security_token='${this.config.securityToken}',
-        domain='${this.config.domain}'
-    )
+    # Handle custom domain vs standard domain
+    domain = '${this.config.domain}'
+    if 'lightning.force.com' in domain:
+        # Full custom domain provided
+        sf = Salesforce(
+            username='${this.config.username}',
+            password='${this.config.password}',
+            security_token='${this.config.securityToken}',
+            domain=domain
+        )
+    else:
+        # Standard domain (login/test) or short custom domain
+        sf = Salesforce(
+            username='${this.config.username}',
+            password='${this.config.password}',
+            security_token='${this.config.securityToken}',
+            domain=domain
+        )
     
     # Query the specified object
     records = sf.query("SELECT * FROM ${objectName} LIMIT ${limit}")
@@ -362,12 +422,24 @@ try:
     from simple_salesforce import Salesforce
     import json
     
-    sf = Salesforce(
-        username='${this.config.username}',
-        password='${this.config.password}',
-        security_token='${this.config.securityToken}',
-        domain='${this.config.domain}'
-    )
+    # Handle custom domain vs standard domain
+    domain = '${this.config.domain}'
+    if 'lightning.force.com' in domain:
+        # Full custom domain provided
+        sf = Salesforce(
+            username='${this.config.username}',
+            password='${this.config.password}',
+            security_token='${this.config.securityToken}',
+            domain=domain
+        )
+    else:
+        # Standard domain (login/test) or short custom domain
+        sf = Salesforce(
+            username='${this.config.username}',
+            password='${this.config.password}',
+            security_token='${this.config.securityToken}',
+            domain=domain
+        )
     
     opportunities = sf.query("""
         SELECT Id, Title__c, Description__c, Organization__c, Category__c, 
