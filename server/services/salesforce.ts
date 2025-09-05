@@ -471,12 +471,11 @@ try:
     
     all_opportunities = []
     
-    # First query active Programs
+    # First query all Programs (remove Active filter for testing)
     try:
         programs = sf.query("""
             SELECT Id, Name, Start_Date__c, End_Date__c, Status__c
             FROM Program__c 
-            WHERE Status__c = 'Active'
             LIMIT 20
         """)
         
@@ -503,16 +502,12 @@ try:
                            GW_Volunteers__Location__c, GW_Volunteers__Campaign__c,
                            GW_Volunteers__Skills_Needed__c, GW_Volunteers__Display_on_Website__c
                     FROM GW_Volunteers__Volunteer_Job__c 
-                    WHERE GW_Volunteers__Display_on_Website__c = true
-                    OR GW_Volunteers__Display_on_Website__c = null
                     LIMIT 50
                 """)
             
             # For each job, get its shifts
             for job in jobs['records']:
-                # Only include if job should be displayed
-                if job.get('GW_Volunteers__Display_on_Website__c', True) == False:
-                    continue
+                # Include all jobs for now (removed display filter)
                     
                 job_id = job['Id']
                 shifts = sf.query(f"""
