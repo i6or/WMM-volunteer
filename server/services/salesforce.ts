@@ -511,12 +511,12 @@ try:
                     SELECT Id, Name, GW_Volunteers__Start_Date_Time__c,
                            GW_Volunteers__Duration__c, GW_Volunteers__Total_Volunteers__c,
                            GW_Volunteers__Number_of_Volunteers_Still_Needed__c,
-                           GW_Volunteers__Description__c
+                           GW_Volunteers__Description__c,
+                           GW_Volunteers__System_Note__c
                     FROM GW_Volunteers__Volunteer_Shift__c
                     WHERE GW_Volunteers__Volunteer_Job__c = '{job_id}'
-                    AND GW_Volunteers__Start_Date_Time__c >= TODAY
                     ORDER BY GW_Volunteers__Start_Date_Time__c
-                    LIMIT 20
+                    LIMIT 50
                 """)
                 
                 # Add program info to each opportunity
@@ -571,15 +571,23 @@ except Exception as e:
         // Parse date and time from shift
         const shiftDate = shift.GW_Volunteers__Start_Date_Time__c 
           ? new Date(shift.GW_Volunteers__Start_Date_Time__c)
-          : new Date();
+          : null;
+          
+        // Skip shifts without dates
+        if (!shiftDate || isNaN(shiftDate.getTime())) {
+          return null;
+        }
           
         const duration = shift.GW_Volunteers__Duration__c || 1;
         const endTime = new Date(shiftDate.getTime() + (duration * 60 * 60 * 1000));
         
+        // Include shift name or date in title to differentiate
+        const shiftLabel = shift.Name || shiftDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        
         return {
           id: shift.Id,
           salesforceId: shift.Id,
-          title: `${job.Name || 'Volunteer Opportunity'} - ${program?.Name || ''}`,
+          title: `${job.Name || 'Volunteer Opportunity'}${program?.Name ? ` - ${program.Name}` : ''} (${shiftLabel})`,
           description: job.GW_Volunteers__Description__c || shift.GW_Volunteers__Description__c || 'Join us for this volunteer opportunity',
           organization: "Women's Money Matters",
           category: category,
