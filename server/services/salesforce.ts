@@ -503,7 +503,9 @@ try:
             
             # Add each shift with a date as an opportunity
             for shift in shifts['records']:
-                if shift.get('GW_Volunteers__Start_Date_Time__c'):
+                shift_date = shift.get('GW_Volunteers__Start_Date_Time__c')
+                if shift_date is not None and shift_date != '':
+                    print(f"    Adding shift: {shift['Name']} on {shift_date}")
                     all_opportunities.append({
                         'program': None,  # We'll get program later when we add the relationship
                         'job': job,
