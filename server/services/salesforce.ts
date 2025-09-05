@@ -176,13 +176,14 @@ try:
         'Status__c': '${(opportunity.status || '').replace(/'/g, "\\'") || ''}'
     }
     
-    result = sf.Volunteer_Opportunity__c.create(opportunity_data)
-    print(json.dumps({"id": result["id"], "success": result["success"]}))
+    # Note: V4S uses different objects - would need to create Volunteer_Hours__c instead
+    result = {"id": "placeholder", "success": False}
+    print(json.dumps({"error": "V4S integration - use Volunteer_Hours__c instead", "success": False}))
     
 except ImportError:
-    print(json.dumps({"error": "simple-salesforce not installed", "success": false}))
+    print(json.dumps({"error": "simple-salesforce not installed", "success": False}))
 except Exception as e:
-    print(json.dumps({"error": str(e), "success": false}))
+    print(json.dumps({"error": str(e), "success": False}))
 `;
 
     try {
@@ -462,42 +463,72 @@ try:
     
     all_opportunities = []
     
-    # Query V4S Volunteer Jobs that should be displayed on website
+    # First query active Programs
     try:
-        jobs = sf.query("""
-            SELECT Id, Name, GW_Volunteers__Description__c, 
-                   GW_Volunteers__Display_on_Website__c,
-                   GW_Volunteers__Location__c, GW_Volunteers__Campaign__c,
-                   GW_Volunteers__Skills_Needed__c
-            FROM GW_Volunteers__Volunteer_Job__c 
-            WHERE GW_Volunteers__Display_on_Website__c = true
-            OR GW_Volunteers__Display_on_Website__c = null
+        programs = sf.query("""
+            SELECT Id, Name, Start_Date__c, End_Date__c, Status__c
+            FROM Program__c 
+            WHERE Status__c = 'Active'
+            LIMIT 20
         """)
         
-        # For each job, get its shifts
-        for job in jobs['records']:
-            job_id = job['Id']
-            shifts = sf.query(f"""
-                SELECT Id, Name, GW_Volunteers__Start_Date_Time__c,
-                       GW_Volunteers__Duration__c, GW_Volunteers__Total_Volunteers__c,
-                       GW_Volunteers__Number_of_Volunteers_Still_Needed__c,
-                       GW_Volunteers__Description__c
-                FROM GW_Volunteers__Volunteer_Shift__c
-                WHERE GW_Volunteers__Volunteer_Job__c = '{job_id}'
-                AND GW_Volunteers__Start_Date_Time__c >= TODAY
-                ORDER BY GW_Volunteers__Start_Date_Time__c
-                LIMIT 20
-            """)
+        for program in programs['records']:
+            program_id = program['Id']
             
-            # Create opportunity for each shift
-            for shift in shifts['records']:
-                all_opportunities.append({
-                    'job': job,
-                    'shift': shift
-                })
+            # Query Volunteer Jobs related to this program
+            # Note: This assumes a custom field Program__c on the Volunteer_Job__c object
+            # If the field doesn't exist yet, we'll query by Campaign instead
+            try:
+                jobs = sf.query(f"""
+                    SELECT Id, Name, GW_Volunteers__Description__c,
+                           GW_Volunteers__Location__c, GW_Volunteers__Campaign__c,
+                           GW_Volunteers__Skills_Needed__c, GW_Volunteers__Display_on_Website__c
+                    FROM GW_Volunteers__Volunteer_Job__c 
+                    WHERE Program__c = '{program_id}'
+                    OR (GW_Volunteers__Campaign__r.Name LIKE '%{program['Name']}%'
+                        AND GW_Volunteers__Campaign__c != null)
+                """)
+            except:
+                # If Program__c field doesn't exist, fall back to all jobs
+                jobs = sf.query("""
+                    SELECT Id, Name, GW_Volunteers__Description__c,
+                           GW_Volunteers__Location__c, GW_Volunteers__Campaign__c,
+                           GW_Volunteers__Skills_Needed__c, GW_Volunteers__Display_on_Website__c
+                    FROM GW_Volunteers__Volunteer_Job__c 
+                    WHERE GW_Volunteers__Display_on_Website__c = true
+                    OR GW_Volunteers__Display_on_Website__c = null
+                    LIMIT 50
+                """)
+            
+            # For each job, get its shifts
+            for job in jobs['records']:
+                # Only include if job should be displayed
+                if job.get('GW_Volunteers__Display_on_Website__c', True) == False:
+                    continue
+                    
+                job_id = job['Id']
+                shifts = sf.query(f"""
+                    SELECT Id, Name, GW_Volunteers__Start_Date_Time__c,
+                           GW_Volunteers__Duration__c, GW_Volunteers__Total_Volunteers__c,
+                           GW_Volunteers__Number_of_Volunteers_Still_Needed__c,
+                           GW_Volunteers__Description__c
+                    FROM GW_Volunteers__Volunteer_Shift__c
+                    WHERE GW_Volunteers__Volunteer_Job__c = '{job_id}'
+                    AND GW_Volunteers__Start_Date_Time__c >= TODAY
+                    ORDER BY GW_Volunteers__Start_Date_Time__c
+                    LIMIT 20
+                """)
+                
+                # Add program info to each opportunity
+                for shift in shifts['records']:
+                    all_opportunities.append({
+                        'program': program,
+                        'job': job,
+                        'shift': shift
+                    })
                 
     except Exception as e:
-        print(f"Error querying V4S objects: {e}")
+        print(f"Error querying Programs and V4S objects: {e}")
     
     result = {
         'records': all_opportunities,
@@ -521,6 +552,7 @@ except Exception as e:
 
       // Transform V4S data to local format
       return result.records?.map((item: any) => {
+        const program = item.program;
         const job = item.job;
         const shift = item.shift;
         
@@ -547,7 +579,7 @@ except Exception as e:
         return {
           id: shift.Id,
           salesforceId: shift.Id,
-          title: job.Name || 'Volunteer Opportunity',
+          title: `${job.Name || 'Volunteer Opportunity'} - ${program?.Name || ''}`,
           description: job.GW_Volunteers__Description__c || shift.GW_Volunteers__Description__c || 'Join us for this volunteer opportunity',
           organization: "Women's Money Matters",
           category: category,
