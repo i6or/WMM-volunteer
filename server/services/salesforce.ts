@@ -180,6 +180,174 @@ except Exception as e:
     return true;
   }
 
+  async testConnection(): Promise<{ success: boolean; message: string; userInfo?: any }> {
+    if (!this.config.username || !this.config.password) {
+      return { success: false, message: 'Salesforce credentials not configured' };
+    }
+
+    const scriptContent = `
+import sys
+import os
+sys.path.append(os.path.expanduser('~/.pythonlibs'))
+
+try:
+    from simple_salesforce import Salesforce
+    import json
+    
+    sf = Salesforce(
+        username='${this.config.username}',
+        password='${this.config.password}',
+        security_token='${this.config.securityToken}',
+        domain='${this.config.domain}'
+    )
+    
+    # Test connection by getting user info
+    user_info = sf.query("SELECT Id, Name, Email FROM User WHERE Username = '${this.config.username}' LIMIT 1")
+    
+    result = {
+        "success": True,
+        "message": "Successfully connected to Salesforce",
+        "userInfo": user_info['records'][0] if user_info['records'] else None,
+        "organizationId": sf.sf_instance
+    }
+    
+    print(json.dumps(result))
+    
+except ImportError:
+    print(json.dumps({"success": False, "message": "simple-salesforce not installed"}))
+except Exception as e:
+    print(json.dumps({"success": False, "message": str(e)}))
+`;
+
+    try {
+      const result = await this.executePythonScript(scriptContent);
+      return result;
+    } catch (error) {
+      return { success: false, message: `Connection test failed: ${error}` };
+    }
+  }
+
+  async exploreObjects(): Promise<{ success: boolean; objects?: any[]; message?: string }> {
+    if (!this.config.username || !this.config.password) {
+      return { success: false, message: 'Salesforce credentials not configured' };
+    }
+
+    const scriptContent = `
+import sys
+import os
+sys.path.append(os.path.expanduser('~/.pythonlibs'))
+
+try:
+    from simple_salesforce import Salesforce
+    import json
+    
+    sf = Salesforce(
+        username='${this.config.username}',
+        password='${this.config.password}',
+        security_token='${this.config.securityToken}',
+        domain='${this.config.domain}'
+    )
+    
+    # Get all custom objects that might contain volunteer opportunities
+    objects_desc = sf.describe()
+    
+    relevant_objects = []
+    
+    for obj in objects_desc['sobjects']:
+        obj_name = obj['name']
+        # Look for objects that might contain volunteer opportunities
+        if any(keyword in obj_name.lower() for keyword in ['volunteer', 'opportunity', 'event', 'activity', 'program']):
+            try:
+                # Get detailed description of the object
+                obj_detail = getattr(sf, obj_name).describe()
+                
+                fields = []
+                for field in obj_detail['fields']:
+                    fields.append({
+                        'name': field['name'],
+                        'label': field['label'],
+                        'type': field['type'],
+                        'custom': field['custom']
+                    })
+                
+                relevant_objects.append({
+                    'name': obj_name,
+                    'label': obj['label'],
+                    'custom': obj['custom'],
+                    'fields': fields[:10]  # Limit to first 10 fields for brevity
+                })
+            except:
+                # Skip objects we can't describe
+                pass
+    
+    result = {
+        "success": True,
+        "objects": relevant_objects,
+        "totalObjects": len(objects_desc['sobjects'])
+    }
+    
+    print(json.dumps(result))
+    
+except ImportError:
+    print(json.dumps({"success": False, "message": "simple-salesforce not installed"}))
+except Exception as e:
+    print(json.dumps({"success": False, "message": str(e)}))
+`;
+
+    try {
+      const result = await this.executePythonScript(scriptContent);
+      return result;
+    } catch (error) {
+      return { success: false, message: `Schema exploration failed: ${error}` };
+    }
+  }
+
+  async queryObject(objectName: string, limit: number = 10): Promise<any> {
+    if (!this.config.username || !this.config.password) {
+      return { success: false, message: 'Salesforce credentials not configured' };
+    }
+
+    const scriptContent = `
+import sys
+import os
+sys.path.append(os.path.expanduser('~/.pythonlibs'))
+
+try:
+    from simple_salesforce import Salesforce
+    import json
+    
+    sf = Salesforce(
+        username='${this.config.username}',
+        password='${this.config.password}',
+        security_token='${this.config.securityToken}',
+        domain='${this.config.domain}'
+    )
+    
+    # Query the specified object
+    records = sf.query("SELECT * FROM ${objectName} LIMIT ${limit}")
+    
+    result = {
+        "success": True,
+        "records": records['records'],
+        "totalSize": records['totalSize']
+    }
+    
+    print(json.dumps(result))
+    
+except ImportError:
+    print(json.dumps({"success": False, "message": "simple-salesforce not installed"}))
+except Exception as e:
+    print(json.dumps({"success": False, "message": str(e)}))
+`;
+
+    try {
+      const result = await this.executePythonScript(scriptContent);
+      return result;
+    } catch (error) {
+      return { success: false, message: `Query failed: ${error}` };
+    }
+  }
+
   async syncOpportunities(): Promise<Opportunity[]> {
     if (!this.config.username || !this.config.password) {
       return [];

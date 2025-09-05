@@ -227,6 +227,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.status(204).send();
   });
 
+  // Salesforce connection test endpoint
+  app.get("/api/salesforce/test", async (req, res) => {
+    try {
+      const result = await salesforceService.testConnection();
+      res.json(result);
+    } catch (error) {
+      res.status(500).json({ success: false, message: "Connection test failed" });
+    }
+  });
+
+  // Salesforce objects exploration endpoint
+  app.get("/api/salesforce/objects", async (req, res) => {
+    try {
+      const result = await salesforceService.exploreObjects();
+      res.json(result);
+    } catch (error) {
+      res.status(500).json({ success: false, message: "Object exploration failed" });
+    }
+  });
+
+  // Salesforce object query endpoint
+  app.get("/api/salesforce/query/:objectName", async (req, res) => {
+    try {
+      const { objectName } = req.params;
+      const { limit = 10 } = req.query;
+      const result = await salesforceService.queryObject(objectName, parseInt(limit as string));
+      res.json(result);
+    } catch (error) {
+      res.status(500).json({ success: false, message: "Query failed" });
+    }
+  });
+
   // Salesforce sync endpoint
   app.post("/api/sync/salesforce", async (req, res) => {
     try {
