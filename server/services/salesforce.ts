@@ -387,14 +387,22 @@ try:
     # Get object fields first, then query with specific fields
     obj_desc = getattr(sf, '${objectName}').describe()
     
-    # Get first 10 fields for the query (excluding complex types)
-    queryable_fields = []
-    for field in obj_desc['fields'][:15]:  # Limit to first 15 fields
-        if field['type'] in ['string', 'textarea', 'email', 'phone', 'url', 'date', 'datetime', 'boolean', 'int', 'double', 'currency', 'percent', 'id', 'reference']:
-            queryable_fields.append(field['name'])
-    
-    if not queryable_fields:
-        queryable_fields = ['Id']  # At minimum, select Id
+    # For V4S Shift objects, ensure we get the date field
+    if '${objectName}' == 'GW_Volunteers__Volunteer_Shift__c':
+        queryable_fields = ['Id', 'Name', 'GW_Volunteers__Start_Date_Time__c', 
+                          'GW_Volunteers__Duration__c', 'GW_Volunteers__Total_Volunteers__c',
+                          'GW_Volunteers__Number_of_Volunteers_Still_Needed__c',
+                          'GW_Volunteers__Volunteer_Job__c', 'GW_Volunteers__Description__c',
+                          'GW_Volunteers__Desired_Number_of_Volunteers__c']
+    else:
+        # Get first 15 fields for other objects (excluding complex types)
+        queryable_fields = []
+        for field in obj_desc['fields'][:30]:  # Check more fields
+            if field['type'] in ['string', 'textarea', 'email', 'phone', 'url', 'date', 'datetime', 'boolean', 'int', 'double', 'currency', 'percent', 'id', 'reference']:
+                queryable_fields.append(field['name'])
+        
+        if not queryable_fields:
+            queryable_fields = ['Id']  # At minimum, select Id
     
     fields_str = ', '.join(queryable_fields)
     records = sf.query(f"SELECT {fields_str} FROM ${objectName} LIMIT ${limit}")
