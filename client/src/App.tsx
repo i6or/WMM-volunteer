@@ -6,7 +6,6 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import Home from "@/pages/home";
 import VolunteerRegistration from "@/pages/volunteer-registration";
 import AdminDashboard from "@/pages/admin-dashboard";
-import { SalesforceTest } from "@/pages/salesforce-test";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -15,7 +14,6 @@ function Router() {
       <Route path="/" component={Home} />
       <Route path="/register" component={VolunteerRegistration} />
       <Route path="/admin" component={AdminDashboard} />
-      <Route path="/salesforce-test" component={SalesforceTest} />
       <Route component={NotFound} />
     </Switch>
   );
