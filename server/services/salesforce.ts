@@ -519,13 +519,15 @@ try:
                     LIMIT 50
                 """)
                 
-                # Add program info to each opportunity
+                # Add program info to each opportunity - only if shift has a date
                 for shift in shifts['records']:
-                    all_opportunities.append({
-                        'program': program,
-                        'job': job,
-                        'shift': shift
-                    })
+                    # Skip shifts without dates
+                    if shift.get('GW_Volunteers__Start_Date_Time__c'):
+                        all_opportunities.append({
+                            'program': program,
+                            'job': job,
+                            'shift': shift
+                        })
                 
     except Exception as e:
         print(f"Error querying Programs and V4S objects: {e}")
