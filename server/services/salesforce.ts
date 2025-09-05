@@ -471,66 +471,44 @@ try:
     
     all_opportunities = []
     
-    # First query all Programs (remove Active filter for testing)
+    # Directly query ALL Volunteer Jobs (bypass Program for now)
     try:
-        programs = sf.query("""
-            SELECT Id, Name, Start_Date__c, End_Date__c, Status__c
-            FROM Program__c 
-            LIMIT 20
+        jobs = sf.query("""
+            SELECT Id, Name, GW_Volunteers__Description__c,
+                   GW_Volunteers__Location__c, GW_Volunteers__Campaign__c,
+                   GW_Volunteers__Skills_Needed__c, GW_Volunteers__Display_on_Website__c
+            FROM GW_Volunteers__Volunteer_Job__c 
+            LIMIT 100
         """)
         
-        for program in programs['records']:
-            program_id = program['Id']
+        print(f"Found {len(jobs['records'])} volunteer jobs")
+        
+        # For each job, get its shifts
+        for job in jobs['records']:
+            job_id = job['Id']
+            shifts = sf.query(f"""
+                SELECT Id, Name, GW_Volunteers__Start_Date_Time__c,
+                       GW_Volunteers__Duration__c, GW_Volunteers__Total_Volunteers__c,
+                       GW_Volunteers__Number_of_Volunteers_Still_Needed__c,
+                       GW_Volunteers__Description__c,
+                       GW_Volunteers__System_Note__c
+                FROM GW_Volunteers__Volunteer_Shift__c
+                WHERE GW_Volunteers__Volunteer_Job__c = '{job_id}'
+                AND GW_Volunteers__Start_Date_Time__c != null
+                ORDER BY GW_Volunteers__Start_Date_Time__c
+                LIMIT 50
+            """)
             
-            # Query Volunteer Jobs related to this program
-            # Note: This assumes a custom field Program__c on the Volunteer_Job__c object
-            # If the field doesn't exist yet, we'll query by Campaign instead
-            try:
-                jobs = sf.query(f"""
-                    SELECT Id, Name, GW_Volunteers__Description__c,
-                           GW_Volunteers__Location__c, GW_Volunteers__Campaign__c,
-                           GW_Volunteers__Skills_Needed__c, GW_Volunteers__Display_on_Website__c
-                    FROM GW_Volunteers__Volunteer_Job__c 
-                    WHERE Program__c = '{program_id}'
-                    OR (GW_Volunteers__Campaign__r.Name LIKE '%{program['Name']}%'
-                        AND GW_Volunteers__Campaign__c != null)
-                """)
-            except:
-                # If Program__c field doesn't exist, fall back to all jobs
-                jobs = sf.query("""
-                    SELECT Id, Name, GW_Volunteers__Description__c,
-                           GW_Volunteers__Location__c, GW_Volunteers__Campaign__c,
-                           GW_Volunteers__Skills_Needed__c, GW_Volunteers__Display_on_Website__c
-                    FROM GW_Volunteers__Volunteer_Job__c 
-                    LIMIT 50
-                """)
+            print(f"  Job {job['Name']}: {len(shifts['records'])} shifts with dates")
             
-            # For each job, get its shifts
-            for job in jobs['records']:
-                # Include all jobs for now (removed display filter)
-                    
-                job_id = job['Id']
-                shifts = sf.query(f"""
-                    SELECT Id, Name, GW_Volunteers__Start_Date_Time__c,
-                           GW_Volunteers__Duration__c, GW_Volunteers__Total_Volunteers__c,
-                           GW_Volunteers__Number_of_Volunteers_Still_Needed__c,
-                           GW_Volunteers__Description__c,
-                           GW_Volunteers__System_Note__c
-                    FROM GW_Volunteers__Volunteer_Shift__c
-                    WHERE GW_Volunteers__Volunteer_Job__c = '{job_id}'
-                    ORDER BY GW_Volunteers__Start_Date_Time__c
-                    LIMIT 50
-                """)
-                
-                # Add program info to each opportunity - only if shift has a date
-                for shift in shifts['records']:
-                    # Skip shifts without dates
-                    if shift.get('GW_Volunteers__Start_Date_Time__c'):
-                        all_opportunities.append({
-                            'program': program,
-                            'job': job,
-                            'shift': shift
-                        })
+            # Add each shift with a date as an opportunity
+            for shift in shifts['records']:
+                if shift.get('GW_Volunteers__Start_Date_Time__c'):
+                    all_opportunities.append({
+                        'program': None,  # We'll get program later when we add the relationship
+                        'job': job,
+                        'shift': shift
+                    })
                 
     except Exception as e:
         print(f"Error querying Programs and V4S objects: {e}")
