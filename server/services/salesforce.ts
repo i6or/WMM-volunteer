@@ -57,7 +57,8 @@ export class SalesforceService {
 
     const scriptContent = `
 import sys
-sys.path.append('/usr/local/lib/python3.8/site-packages')
+import os
+sys.path.append(os.path.expanduser('~/.pythonlibs'))
 
 try:
     from simple_salesforce import Salesforce
@@ -71,28 +72,28 @@ try:
     )
     
     volunteer_data = {
-        'First_Name__c': '${volunteer.firstName}',
-        'Last_Name__c': '${volunteer.lastName}',
-        'Email__c': '${volunteer.email}',
-        'Phone__c': '${volunteer.phone || ''}',
-        'Street_Address__c': '${volunteer.streetAddress || ''}',
-        'City__c': '${volunteer.city || ''}',
-        'State__c': '${volunteer.state || ''}',
-        'ZIP_Code__c': '${volunteer.zipCode || ''}',
+        'First_Name__c': '${volunteer.firstName.replace(/'/g, "\\'") || ''}',
+        'Last_Name__c': '${volunteer.lastName.replace(/'/g, "\\'") || ''}',
+        'Email__c': '${volunteer.email.replace(/'/g, "\\'") || ''}',
+        'Phone__c': '${(volunteer.phone || '').replace(/'/g, "\\'") || ''}',
+        'Street_Address__c': '${(volunteer.streetAddress || '').replace(/'/g, "\\'") || ''}',
+        'City__c': '${(volunteer.city || '').replace(/'/g, "\\'") || ''}',
+        'State__c': '${(volunteer.state || '').replace(/'/g, "\\'") || ''}',
+        'ZIP_Code__c': '${(volunteer.zipCode || '').replace(/'/g, "\\'") || ''}',
         'Interest_Food_Hunger__c': ${volunteer.interestFoodHunger},
         'Interest_Education__c': ${volunteer.interestEducation},
         'Interest_Environment__c': ${volunteer.interestEnvironment},
         'Interest_Health__c': ${volunteer.interestHealth},
         'Interest_Seniors__c': ${volunteer.interestSeniors},
         'Interest_Animals__c': ${volunteer.interestAnimals},
-        'Availability__c': '${volunteer.availability || ''}',
-        'Transportation__c': '${volunteer.transportation || ''}',
-        'Special_Skills__c': '${volunteer.specialSkills || ''}',
-        'Emergency_Contact_Name__c': '${volunteer.emergencyContactName || ''}',
-        'Emergency_Contact_Phone__c': '${volunteer.emergencyContactPhone || ''}',
-        'Emergency_Contact_Relationship__c': '${volunteer.emergencyContactRelationship || ''}',
+        'Availability__c': '${(volunteer.availability || '').replace(/'/g, "\\'") || ''}',
+        'Transportation__c': '${(volunteer.transportation || '').replace(/'/g, "\\'") || ''}',
+        'Special_Skills__c': '${(volunteer.specialSkills || '').replace(/'/g, "\\'") || ''}',
+        'Emergency_Contact_Name__c': '${(volunteer.emergencyContactName || '').replace(/'/g, "\\'") || ''}',
+        'Emergency_Contact_Phone__c': '${(volunteer.emergencyContactPhone || '').replace(/'/g, "\\'") || ''}',
+        'Emergency_Contact_Relationship__c': '${(volunteer.emergencyContactRelationship || '').replace(/'/g, "\\'") || ''}',
         'Opt_In_Communications__c': ${volunteer.optInCommunications},
-        'Status__c': '${volunteer.status}'
+        'Status__c': '${(volunteer.status || '').replace(/'/g, "\\'") || ''}'
     }
     
     result = sf.Volunteer__c.create(volunteer_data)
@@ -121,7 +122,8 @@ except Exception as e:
 
     const scriptContent = `
 import sys
-sys.path.append('/usr/local/lib/python3.8/site-packages')
+import os
+sys.path.append(os.path.expanduser('~/.pythonlibs'))
 
 try:
     from simple_salesforce import Salesforce
@@ -136,18 +138,18 @@ try:
     )
     
     opportunity_data = {
-        'Title__c': '${opportunity.title}',
-        'Description__c': '${opportunity.description}',
-        'Organization__c': '${opportunity.organization}',
-        'Category__c': '${opportunity.category}',
+        'Title__c': '${opportunity.title.replace(/'/g, "\\'") || ''}',
+        'Description__c': '${opportunity.description.replace(/'/g, "\\'") || ''}',
+        'Organization__c': '${opportunity.organization.replace(/'/g, "\\'") || ''}',
+        'Category__c': '${opportunity.category.replace(/'/g, "\\'") || ''}',
         'Event_Date__c': '${opportunity.date.toISOString().split('T')[0]}',
-        'Start_Time__c': '${opportunity.startTime}',
-        'End_Time__c': '${opportunity.endTime}',
-        'Location__c': '${opportunity.location}',
+        'Start_Time__c': '${opportunity.startTime.replace(/'/g, "\\'") || ''}',
+        'End_Time__c': '${opportunity.endTime.replace(/'/g, "\\'") || ''}',
+        'Location__c': '${opportunity.location.replace(/'/g, "\\'") || ''}',
         'Total_Spots__c': ${opportunity.totalSpots},
         'Filled_Spots__c': ${opportunity.filledSpots},
-        'Contact_Email__c': '${opportunity.contactEmail || ''}',
-        'Status__c': '${opportunity.status}'
+        'Contact_Email__c': '${(opportunity.contactEmail || '').replace(/'/g, "\\'") || ''}',
+        'Status__c': '${(opportunity.status || '').replace(/'/g, "\\'") || ''}'
     }
     
     result = sf.Volunteer_Opportunity__c.create(opportunity_data)
@@ -185,7 +187,8 @@ except Exception as e:
 
     const scriptContent = `
 import sys
-sys.path.append('/usr/local/lib/python3.8/site-packages')
+import os
+sys.path.append(os.path.expanduser('~/.pythonlibs'))
 
 try:
     from simple_salesforce import Salesforce
