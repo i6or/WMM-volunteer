@@ -383,8 +383,20 @@ try:
             domain=domain
         )
     
-    # Query the specified object
-    records = sf.query("SELECT * FROM ${objectName} LIMIT ${limit}")
+    # Get object fields first, then query with specific fields
+    obj_desc = getattr(sf, '${objectName}').describe()
+    
+    # Get first 10 fields for the query (excluding complex types)
+    queryable_fields = []
+    for field in obj_desc['fields'][:15]:  # Limit to first 15 fields
+        if field['type'] in ['string', 'textarea', 'email', 'phone', 'url', 'date', 'datetime', 'boolean', 'int', 'double', 'currency', 'percent', 'id', 'reference']:
+            queryable_fields.append(field['name'])
+    
+    if not queryable_fields:
+        queryable_fields = ['Id']  # At minimum, select Id
+    
+    fields_str = ', '.join(queryable_fields)
+    records = sf.query(f"SELECT {fields_str} FROM ${objectName} LIMIT ${limit}")
     
     result = {
         "success": True,
