@@ -20,7 +20,7 @@ VolunteerConnect has been customized for Women's Money Matters, a nonprofit orga
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.
-Color scheme: Purple/magenta branding to match organization identity.
+Color scheme: Green branding to match organization identity.
 
 ## System Architecture
 
@@ -94,7 +94,7 @@ Color scheme: Purple/magenta branding to match organization identity.
 
 ### Branding Updates
 - Updated application name and headers to reflect Women's Money Matters branding
-- Changed color scheme from blue to purple/magenta to match organization identity
+- Changed color scheme to green to match organization identity
 - Updated hero section messaging to focus on financial empowerment mission
 
 ### Volunteer Categories

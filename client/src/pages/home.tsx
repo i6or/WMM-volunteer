@@ -51,13 +51,13 @@ export default function Home() {
       <div className="container mx-auto px-4 py-8 max-w-7xl">
         {/* Hero Section */}
         <section className="mb-12">
-          <div className="bg-gradient-to-r from-primary to-purple-600 rounded-xl p-8 text-white relative overflow-hidden">
+          <div className="bg-gradient-to-r from-primary to-green-600 rounded-xl p-8 text-white relative overflow-hidden">
             <div className="relative z-10">
               <h2 className="text-3xl font-bold mb-4">Empower Women & Girls Through Financial Education</h2>
-              <p className="text-purple-100 text-lg mb-6 max-w-2xl">
+              <p className="text-green-100 text-lg mb-6 max-w-2xl">
                 Join our mission to build financial wellness, confidence, and security for women and girls living on low incomes through coaching and workshops.
               </p>
-              <Button className="bg-white text-primary hover:bg-purple-50" data-testid="button-browse">
+              <Button className="bg-white text-primary hover:bg-green-50" data-testid="button-browse">
                 Volunteer Today
               </Button>
             </div>
@@ -110,8 +110,8 @@ export default function Home() {
                       {stats.monthlyHours?.toLocaleString()}
                     </p>
                   </div>
-                  <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
-                    <Clock className="text-purple-600 h-5 w-5" />
+                  <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                    <Clock className="text-green-600 h-5 w-5" />
                   </div>
                 </div>
               </CardContent>

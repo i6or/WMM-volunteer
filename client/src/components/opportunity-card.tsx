@@ -12,7 +12,7 @@ interface OpportunityCardProps {
 }
 
 const categoryColors = {
-  "Financial Coaching": "bg-purple-100 text-purple-800",
+  "Financial Coaching": "bg-green-100 text-green-800",
   "Workshop Presenting": "bg-blue-100 text-blue-800", 
   "Program Support": "bg-emerald-100 text-emerald-800",
   "Administrative Support": "bg-orange-100 text-orange-800",

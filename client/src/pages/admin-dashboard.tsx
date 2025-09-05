@@ -107,8 +107,8 @@ export default function AdminDashboard() {
                     </p>
                     <p className="text-xs text-green-600 mt-1">↑ 8% from last month</p>
                   </div>
-                  <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
-                    <Hourglass className="text-purple-600 h-6 w-6" />
+                  <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                    <Hourglass className="text-green-600 h-6 w-6" />
                   </div>
                 </div>
               </CardContent>
