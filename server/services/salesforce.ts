@@ -514,7 +514,7 @@ try:
                 FROM GW_Volunteers__Volunteer_Shift__c
                 WHERE GW_Volunteers__Volunteer_Job__c = '{job_id}'
                 AND GW_Volunteers__Start_Date_Time__c != null
-                ORDER BY GW_Volunteers__Start_Date_Time__c
+                ORDER BY GW_Volunteers__Start_Date_Time__c DESC
                 LIMIT 50
             """)
             
@@ -526,7 +526,6 @@ try:
                 if shift_date is not None and shift_date != '':
                     print(f"    Adding shift: {shift['Name']} on {shift_date}")
                     all_opportunities.append({
-                        'program': None,  # We'll get program later when we add the relationship
                         'job': job,
                         'shift': shift
                     })
@@ -556,7 +555,6 @@ except Exception as e:
 
       // Transform V4S data to local format
       return result.records?.map((item: any) => {
-        const program = item.program;
         const job = item.job;
         const shift = item.shift;
         
@@ -585,32 +583,52 @@ except Exception as e:
         const duration = shift.GW_Volunteers__Duration__c || 1;
         const endTime = new Date(shiftDate.getTime() + (duration * 60 * 60 * 1000));
         
+        // Handle volunteer spots safely
+        const totalSpots = shift.GW_Volunteers__Total_Volunteers__c || 1;
+        const stillNeeded = shift.GW_Volunteers__Number_of_Volunteers_Still_Needed__c || 0;
+        const filledSpots = totalSpots > 0 ? Math.max(0, totalSpots - stillNeeded) : 0;
+        
         // Include shift name or date in title to differentiate
-        const shiftLabel = shift.Name || shiftDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        const shiftLabel = shift.Name || shiftDate.toLocaleDateString('en-US', { 
+          month: 'short', 
+          day: 'numeric',
+          year: 'numeric'
+        });
         
         return {
           id: shift.Id,
           salesforceId: shift.Id,
-          title: `${job.Name || 'Volunteer Opportunity'}${program?.Name ? ` - ${program.Name}` : ''} (${shiftLabel})`,
-          description: job.GW_Volunteers__Description__c || shift.GW_Volunteers__Description__c || 'Join us for this volunteer opportunity',
+          title: `${job.Name || 'Volunteer Opportunity'} (${shiftLabel})`,
+          description: shift.GW_Volunteers__Description__c || job.GW_Volunteers__Description__c || 'Join us for this volunteer opportunity',
           organization: "Women's Money Matters",
           category: category,
           date: shiftDate,
-          startTime: shiftDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }),
-          endTime: endTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }),
-          location: job.GW_Volunteers__Location__c || 'See details',
-          totalSpots: shift.GW_Volunteers__Total_Volunteers__c || 1,
-          filledSpots: shift.GW_Volunteers__Total_Volunteers__c 
-            ? (shift.GW_Volunteers__Total_Volunteers__c - (shift.GW_Volunteers__Number_of_Volunteers_Still_Needed__c || 0))
-            : 0,
+          startTime: shiftDate.toLocaleTimeString('en-US', { 
+            hour: 'numeric', 
+            minute: '2-digit', 
+            hour12: true 
+          }),
+          endTime: endTime.toLocaleTimeString('en-US', { 
+            hour: 'numeric', 
+            minute: '2-digit', 
+            hour12: true 
+          }),
+          location: job.GW_Volunteers__Location__c || 'Location TBD',
+          totalSpots: totalSpots,
+          filledSpots: filledSpots,
           contactEmail: 'volunteer@womensmoneymatters.org',
-          status: 'active',
+          status: job.GW_Volunteers__Display_on_Website__c ? 'active' : 'inactive',
           imageUrl: null,
           requirements: job.GW_Volunteers__Skills_Needed__c || null,
           createdAt: new Date(),
           updatedAt: new Date(),
-          jobId: job.Id,  // Keep reference to the job
-          shiftId: shift.Id  // Keep reference to the shift
+          // V4S specific fields
+          jobId: job.Id,
+          shiftId: shift.Id,
+          campaignId: job.GW_Volunteers__Campaign__c || null,
+          duration: duration,
+          skillsNeeded: job.GW_Volunteers__Skills_Needed__c || null,
+          displayOnWebsite: job.GW_Volunteers__Display_on_Website__c || false
         };
       }).filter(Boolean) || [];
     } catch (error) {
