@@ -1,2 +1,1 @@
-web: npm start
-python-install: pip install simple-salesforce
+web: PYTHONPATH=/app/.pythonlibs npm start
