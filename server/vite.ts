@@ -1,13 +1,16 @@
 import express, { type Express, type Request, type Response, type NextFunction } from "express";
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { createServer as createViteServer, createLogger, type ViteDevServer } from "vite";
 import { type Server } from "node:http";
 import viteConfig from "../vite.config";
 import { nanoid } from "nanoid";
 import type { Logger } from "vite";
 
-// __dirname is injected by esbuild
+// Get __dirname for ESM
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const viteLogger = createLogger();
 
@@ -71,7 +74,7 @@ export async function setupVite(app: Express, server: Server) {
 }
 
 export function serveStatic(app: Express) {
-  const distPath = path.resolve(process.cwd(), "dist/public");
+  const distPath = path.resolve(__dirname, "../dist/public");
 
   if (!fs.existsSync(distPath)) {
     throw new Error(
