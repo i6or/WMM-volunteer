@@ -1,0 +1,18 @@
+[build]
+builder = "nixpacks"
+
+[build.nixpacksPlan.phases.setup]
+nixPkgs = ["nodejs", "python3", "python3Packages.pip"]
+
+[build.nixpacksPlan.phases.install]
+cmds = ["npm ci --production=false", "pip install -r requirements.txt"]
+
+[build.nixpacksPlan.phases.build]
+cmds = ["npm run build"]
+
+[deploy]
+startCommand = "npm start"
+healthcheckPath = "/api/health"
+healthcheckTimeout = 300
+restartPolicyType = "on-failure"
+restartPolicyMaxRetries = 10
