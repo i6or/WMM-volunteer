@@ -1,0 +1,13 @@
+{
+  "build": {
+    "builder": "NIXPACKS",
+    "buildCommand": "npm run build && pip install -r requirements.txt --target .pythonlibs",
+    "watchPatterns": [
+      "**"
+    ]
+  },
+  "deploy": {
+    "startCommand": "npm start",
+    "healthcheckPath": "/api/health"
+  }
+}

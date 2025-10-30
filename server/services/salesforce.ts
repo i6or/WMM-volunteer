@@ -22,7 +22,10 @@ export class SalesforceService {
 
   private async executePythonScript(scriptContent: string): Promise<any> {
     return new Promise((resolve, reject) => {
-      const pythonProcess = spawn('python3', ['-c', scriptContent]);
+      // Try different Python commands based on environment
+      const pythonCommand = process.env.NODE_ENV === 'production' ? 'python' : 'python3';
+      
+      const pythonProcess = spawn(pythonCommand, ['-c', scriptContent]);
       
       let stdout = '';
       let stderr = '';
@@ -46,6 +49,10 @@ export class SalesforceService {
           reject(new Error(`Python script failed: ${stderr}`));
         }
       });
+
+      pythonProcess.on('error', (error) => {
+        reject(new Error(`Failed to start Python process: ${error.message}`));
+      });
     });
   }
 
@@ -58,7 +65,19 @@ export class SalesforceService {
     const scriptContent = `
 import sys
 import os
-sys.path.append(os.path.expanduser('~/.pythonlibs'))
+
+# Try multiple paths for Python libraries in different environments
+possible_paths = [
+    os.path.expanduser('~/.pythonlibs'),
+    '.pythonlibs',  # Railway local installation
+    '/app/.pythonlibs',  # Railway container path
+    os.path.join(os.getcwd(), '.pythonlibs')
+]
+
+for path in possible_paths:
+    if os.path.exists(path):
+        sys.path.insert(0, path)
+        break
 
 try:
     from simple_salesforce import Salesforce
@@ -111,10 +130,10 @@ try:
     result = sf.Volunteer__c.create(volunteer_data)
     print(json.dumps({"id": result["id"], "success": result["success"]}))
     
-except ImportError:
-    print(json.dumps({"error": "simple-salesforce not installed", "success": false}))
+except ImportError as e:
+    print(json.dumps({"error": f"simple-salesforce not installed: {str(e)}", "success": False}))
 except Exception as e:
-    print(json.dumps({"error": str(e), "success": false}))
+    print(json.dumps({"error": str(e), "success": False}))
 `;
 
     try {

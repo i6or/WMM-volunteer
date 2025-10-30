@@ -19,6 +19,15 @@ const opportunityQuerySchema = z.object({
 });
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Health check endpoint for Railway
+  app.get("/api/health", async (req, res) => {
+    res.json({ 
+      status: "healthy", 
+      timestamp: new Date().toISOString(),
+      version: "1.0.0"
+    });
+  });
+
   // Volunteer routes
   app.get("/api/volunteers", async (req, res) => {
     try {
