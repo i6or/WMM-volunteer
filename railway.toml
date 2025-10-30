@@ -2,10 +2,14 @@
 builder = "nixpacks"
 
 [build.nixpacksPlan.phases.setup]
-nixPkgs = ["nodejs", "python3", "python3Packages.pip"]
+nixPkgs = ["nodejs", "python311", "python311Packages.pip", "python311Packages.virtualenv"]
 
 [build.nixpacksPlan.phases.install]
-cmds = ["npm ci --production=false", "pip install -r requirements.txt"]
+cmds = [
+    "npm ci --production=false",
+    "python -m venv venv",
+    "source venv/bin/activate && pip install -r requirements.txt"
+]
 
 [build.nixpacksPlan.phases.build]
 cmds = ["npm run build"]

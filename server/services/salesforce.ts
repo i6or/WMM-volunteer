@@ -23,7 +23,9 @@ export class SalesforceService {
   private async executePythonScript(scriptContent: string): Promise<any> {
     return new Promise((resolve, reject) => {
       // Try different Python commands based on environment
-      const pythonCommand = process.env.NODE_ENV === 'production' ? 'python' : 'python3';
+      const pythonCommand = process.env.NODE_ENV === 'production' 
+        ? 'venv/bin/python'  // Use virtual environment Python in production
+        : 'python3';
       
       const pythonProcess = spawn(pythonCommand, ['-c', scriptContent]);
       
