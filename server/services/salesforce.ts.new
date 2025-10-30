@@ -1,0 +1,148 @@
+import { spawn } from 'child_process';
+import { type Volunteer, type Opportunity } from '@shared/schema';
+
+interface SalesforceConfig {
+  username: string;
+  password: string;
+  securityToken: string;
+  domain: string;
+}
+
+export class SalesforceService {
+  private config: SalesforceConfig;
+
+  constructor() {
+    this.config = {
+      username: process.env.SALESFORCE_USERNAME || '',
+      password: process.env.SALESFORCE_PASSWORD || '',
+      securityToken: process.env.SALESFORCE_SECURITY_TOKEN || '',
+      domain: process.env.SALESFORCE_DOMAIN || 'login',
+    };
+  }
+
+  private async executePythonScript(scriptContent: string): Promise<any> {
+    return new Promise((resolve, reject) => {
+      // Try different Python commands based on environment
+      const pythonCommand = process.env.NODE_ENV === 'production' ? 'python' : 'python3';
+      
+      const pythonProcess = spawn(pythonCommand, ['-c', scriptContent]);
+      
+      let stdout = '';
+      let stderr = '';
+
+      pythonProcess.stdout.on('data', (data) => {
+        stdout += data.toString();
+      });
+
+      pythonProcess.stderr.on('data', (data) => {
+        stderr += data.toString();
+      });
+
+      pythonProcess.on('close', (code) => {
+        if (code === 0) {
+          try {
+            resolve(JSON.parse(stdout));
+          } catch (error) {
+            resolve(stdout);
+          }
+        } else {
+          reject(new Error(`Python script failed: ${stderr}`));
+        }
+      });
+
+      pythonProcess.on('error', (error) => {
+        reject(new Error(`Failed to start Python process: ${error.message}`));
+      });
+    });
+  }
+
+  async testConnection(): Promise<{ success: boolean; message: string; userInfo?: any }> {
+    if (!this.config.username || !this.config.password) {
+      return { success: false, message: 'Salesforce credentials not configured' };
+    }
+
+    const scriptContent = `
+import sys
+import os
+import json
+from urllib.parse import urlparse
+
+# Try multiple paths for Python libraries in different environments
+possible_paths = [
+    os.path.expanduser('~/.pythonlibs'),
+    '.pythonlibs',  # Railway local installation
+    '/app/.pythonlibs',  # Railway container path
+    os.path.join(os.getcwd(), '.pythonlibs')
+]
+
+for path in possible_paths:
+    if os.path.exists(path):
+        sys.path.insert(0, path)
+        break
+
+try:
+    from simple_salesforce import Salesforce
+    
+    # Handle custom lightning domain
+    domain = '${this.config.domain}'
+    
+    # Clean up domain URL if needed
+    if 'http' in domain:
+        domain = urlparse(domain).netloc
+    domain = domain.replace('https://', '').replace('http://', '').rstrip('/')
+    
+    if 'lightning.force.com' in domain:
+        # For custom My Domain, we need to use the instance_url parameter
+        sf = Salesforce(
+            username='${this.config.username}',
+            password='${this.config.password}',
+            security_token='${this.config.securityToken}',
+            instance_url=f'https://{domain}'
+        )
+    else:
+        # Standard domain (login/test)
+        sf = Salesforce(
+            username='${this.config.username}',
+            password='${this.config.password}',
+            security_token='${this.config.securityToken}',
+            domain=domain
+        )
+    
+    # Test connection by getting user info
+    user_info = sf.query("SELECT Id, Name, Email FROM User WHERE Username = '${this.config.username}' LIMIT 1")
+    
+    result = {
+        "success": True,
+        "message": "Successfully connected to Salesforce",
+        "userInfo": user_info['records'][0] if user_info['records'] else None,
+        "organizationId": sf.sf_instance
+    }
+    
+    print(json.dumps(result))
+    
+except ImportError as e:
+    print(json.dumps({
+        "success": False, 
+        "message": f"simple-salesforce not installed: {str(e)}"
+    }))
+except Exception as e:
+    print(json.dumps({
+        "success": False, 
+        "message": f"Connection failed: {str(e)}"
+    }))
+`;
+
+    try {
+      const result = await this.executePythonScript(scriptContent);
+      return result;
+    } catch (error) {
+      console.error('Connection test error:', error);
+      return { 
+        success: false, 
+        message: `Connection test failed: ${error instanceof Error ? error.message : String(error)}` 
+      };
+    }
+  }
+
+  // Rest of the class implementation...
+}

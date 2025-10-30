@@ -54,6 +54,13 @@ export const opportunities = pgTable("opportunities", {
   status: text("status").default("active"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
+  // V4S specific fields
+  jobId: text("job_id"), // Salesforce Volunteer Job ID
+  shiftId: text("shift_id"), // Salesforce Volunteer Shift ID
+  campaignId: text("campaign_id"), // Salesforce Campaign ID
+  duration: integer("duration"), // Duration in hours
+  skillsNeeded: text("skills_needed"), // Multipicklist of skills
+  displayOnWebsite: boolean("display_on_website").default(true),
 });
 
 export const volunteerSignups = pgTable("volunteer_signups", {
