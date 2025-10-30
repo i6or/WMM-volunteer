@@ -216,6 +216,204 @@ except Exception as e:
     }
   }
 
+  async getVolunteerOpportunities(): Promise<Opportunity[]> {
+    if (!this.config.username || !this.config.password) {
+      return [];
+    }
+
+    const scriptContent = `
+import sys
+import os
+
+# Try multiple paths for Python libraries
+possible_paths = [
+    os.path.expanduser('~/.pythonlibs'),
+    '.pythonlibs',
+    '/app/.pythonlibs',
+    os.path.join(os.getcwd(), '.pythonlibs')
+]
+
+for path in possible_paths:
+    if os.path.exists(path):
+        sys.path.insert(0, path)
+        break
+
+try:
+    from simple_salesforce import Salesforce
+    import json
+    from datetime import datetime, timedelta
+    
+    # Handle custom lightning domain
+    domain = '${this.config.domain}'
+    if 'lightning.force.com' in domain:
+        sf = Salesforce(
+            username='${this.config.username}',
+            password='${this.config.password}',
+            security_token='${this.config.securityToken}',
+            instance_url=f'https://{domain}'
+        )
+    else:
+        sf = Salesforce(
+            username='${this.config.username}',
+            password='${this.config.password}',
+            security_token='${this.config.securityToken}',
+            domain=domain
+        )
+    
+    # Query for active volunteer jobs with their shifts
+    jobs_query = """
+        SELECT Id, Name, GW_Volunteers__Description__c,
+               GW_Volunteers__Location__c, GW_Volunteers__Campaign__c,
+               GW_Volunteers__Skills_Needed__c, GW_Volunteers__Display_on_Website__c
+        FROM GW_Volunteers__Volunteer_Job__c 
+        WHERE GW_Volunteers__Display_on_Website__c = true
+    """
+    
+    jobs_result = sf.query(jobs_query)
+    opportunities = []
+    
+    for job in jobs_result['records']:
+        # Get upcoming shifts for this job
+        job_id = job['Id']
+        shifts_query = f"""
+            SELECT Id, Name, GW_Volunteers__Start_Date_Time__c,
+                   GW_Volunteers__Duration__c, GW_Volunteers__Total_Volunteers__c,
+                   GW_Volunteers__Number_of_Volunteers_Still_Needed__c,
+                   GW_Volunteers__Description__c
+            FROM GW_Volunteers__Volunteer_Shift__c
+            WHERE GW_Volunteers__Volunteer_Job__c = '{job_id}'
+            AND GW_Volunteers__Start_Date_Time__c >= TODAY
+            AND GW_Volunteers__Number_of_Volunteers_Still_Needed__c > 0
+            ORDER BY GW_Volunteers__Start_Date_Time__c ASC
+            LIMIT 5
+        """
+        
+        shifts_result = sf.query(shifts_query)
+        
+        # Create opportunity object with shifts
+        opportunity = {
+            'id': job['Id'],
+            'title': job['Name'],
+            'description': job.get('GW_Volunteers__Description__c', ''),
+            'location': job.get('GW_Volunteers__Location__c', ''),
+            'skillsNeeded': job.get('GW_Volunteers__Skills_Needed__c', ''),
+            'shifts': []
+        }
+        
+        for shift in shifts_result['records']:
+            shift_data = {
+                'id': shift['Id'],
+                'startDateTime': shift.get('GW_Volunteers__Start_Date_Time__c'),
+                'duration': shift.get('GW_Volunteers__Duration__c', 1),
+                'totalSpots': shift.get('GW_Volunteers__Total_Volunteers__c', 1),
+                'spotsAvailable': shift.get('GW_Volunteers__Number_of_Volunteers_Still_Needed__c', 0),
+                'description': shift.get('GW_Volunteers__Description__c', '')
+            }
+            opportunity['shifts'].append(shift_data)
+        
+        # Only include jobs with available shifts
+        if opportunity['shifts']:
+            opportunities.append(opportunity)
+    
+    print(json.dumps(opportunities))
+    
+except ImportError as e:
+    print(json.dumps({"error": f"simple-salesforce not installed: {str(e)}", "opportunities": []}))
+except Exception as e:
+    print(json.dumps({"error": str(e), "opportunities": []}))
+`;
+
+    try {
+      const result = await this.executePythonScript(scriptContent);
+      if (result.error) {
+        console.error('Salesforce sync error:', result.error);
+        return [];
+      }
+
+      // Transform V4S data to local format
+      return result.map((item: any) => {
+        const job = item;
+        const shifts = item.shifts;
+        
+        // Determine category based on job name
+        let category = 'Volunteer Opportunity';
+        if (job.title?.toLowerCase().includes('coach')) {
+          category = 'Financial Coaching';
+        } else if (job.title?.toLowerCase().includes('presenter')) {
+          category = 'Workshop Presenting';
+        } else if (job.title?.toLowerCase().includes('observer')) {
+          category = 'Workshop Observing';
+        } else if (job.title?.toLowerCase().includes('admin')) {
+          category = 'Administrative Support';
+        }
+        
+        // Parse date and time from shift
+        const shiftDate = shifts[0].startDateTime 
+          ? new Date(shifts[0].startDateTime)
+          : null;
+          
+        // Skip shifts without dates
+        if (!shiftDate || isNaN(shiftDate.getTime())) {
+          return null;
+        }
+          
+        const duration = shifts[0].duration || 1;
+        const endTime = new Date(shiftDate.getTime() + (duration * 60 * 60 * 1000));
+        
+        // Handle volunteer spots safely
+        const totalSpots = shifts[0].totalSpots || 1;
+        const stillNeeded = shifts[0].spotsAvailable || 0;
+        const filledSpots = totalSpots > 0 ? Math.max(0, totalSpots - stillNeeded) : 0;
+        
+        // Include shift name or date in title to differentiate
+        const shiftLabel = shifts[0].startDateTime || shiftDate.toLocaleDateString('en-US', { 
+          month: 'short', 
+          day: 'numeric',
+          year: 'numeric'
+        });
+        
+        return {
+          id: job.id,
+          salesforceId: job.id,
+          title: `${job.title} (${shiftLabel})`,
+          description: job.description || 'Join us for this volunteer opportunity',
+          organization: "Women's Money Matters",
+          category: category,
+          date: shiftDate,
+          startTime: shiftDate.toLocaleTimeString('en-US', { 
+            hour: 'numeric', 
+            minute: '2-digit', 
+            hour12: true 
+          }),
+          endTime: endTime.toLocaleTimeString('en-US', { 
+            hour: 'numeric', 
+            minute: '2-digit', 
+            hour12: true 
+          }),
+          location: job.location || 'Location TBD',
+          totalSpots: totalSpots,
+          filledSpots: filledSpots,
+          contactEmail: 'volunteer@womensmoneymatters.org',
+          status: job.skillsNeeded ? 'active' : 'inactive',
+          imageUrl: null,
+          requirements: job.skillsNeeded || null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          // V4S specific fields
+          jobId: job.id,
+          shiftId: shifts[0].id,
+          campaignId: job.campaignId || null,
+          duration: duration,
+          skillsNeeded: job.skillsNeeded || null,
+          displayOnWebsite: job.displayOnWebsite || false
+        };
+      }).filter(Boolean) || [];
+    } catch (error) {
+      console.error('Failed to sync opportunities from Salesforce:', error);
+      return [];
+    }
+  }
+
   async updateVolunteerRecord(salesforceId: string, updates: Partial<Volunteer>): Promise<boolean> {
     if (!this.config.username || !this.config.password || !salesforceId) {
       return false;
@@ -332,13 +530,14 @@ try:
                 obj_detail = getattr(sf, obj_name).describe()
                 
                 fields = []
-                for field in obj_detail['fields']:
-                    fields.append({
-                        'name': field['name'],
-                        'label': field['label'],
-                        'type': field['type'],
-                        'custom': field['custom']
-                    })
+                for field in obj_detail['fields'][:30]:  # Check more fields
+                    if field['type'] in ['string', 'textarea', 'email', 'phone', 'url', 'date', 'datetime', 'boolean', 'int', 'double', 'currency', 'percent', 'id', 'reference']:
+                        fields.append({
+                            'name': field['name'],
+                            'label': field['label'],
+                            'type': field['type'],
+                            'custom': field['custom']
+                        })
                 
                 relevant_objects.append({
                     'name': obj_name,
@@ -451,10 +650,192 @@ except Exception as e:
   }
 
   // Original sync from Program__c and Workshop__c
-  async syncOpportunities(): Promise<Opportunity[]> {
+  async getVolunteerJobs(): Promise<Opportunity[]> {
     // This is the original function that syncs from Program__c and Workshop__c
     // Keeping it for backward compatibility
     return [];
+  }
+
+  async syncOpportunities(): Promise<Opportunity[]> {
+    if (!this.config.username || !this.config.password) {
+      return [];
+    }
+
+    const scriptContent = `
+import sys
+import os
+sys.path.append(os.path.expanduser('~/.pythonlibs'))
+
+try:
+    from simple_salesforce import Salesforce
+    import json
+    
+    # Handle custom lightning domain
+    domain = '${this.config.domain}'
+    if 'lightning.force.com' in domain:
+        # For custom My Domain, we need to use the instance_url parameter
+        sf = Salesforce(
+            username='${this.config.username}',
+            password='${this.config.password}',
+            security_token='${this.config.securityToken}',
+            instance_url=f'https://{domain}'
+        )
+    else:
+        # Standard domain (login/test)
+        sf = Salesforce(
+            username='${this.config.username}',
+            password='${this.config.password}',
+            security_token='${this.config.securityToken}',
+            domain=domain
+        )
+    
+    all_opportunities = []
+    
+    # Directly query ALL Volunteer Jobs (bypass Program for now)
+    try:
+        jobs = sf.query("""
+            SELECT Id, Name, GW_Volunteers__Description__c,
+                   GW_Volunteers__Location__c, GW_Volunteers__Campaign__c,
+                   GW_Volunteers__Skills_Needed__c, GW_Volunteers__Display_on_Website__c
+            FROM GW_Volunteers__Volunteer_Job__c 
+            LIMIT 100
+        """)
+        
+        print(f"Found {len(jobs['records'])} volunteer jobs")
+        
+        # For each job, get its shifts
+        for job in jobs['records']:
+            job_id = job['Id']
+            shifts = sf.query(f"""
+                SELECT Id, Name, GW_Volunteers__Start_Date_Time__c,
+                       GW_Volunteers__Duration__c, GW_Volunteers__Total_Volunteers__c,
+                       GW_Volunteers__Number_of_Volunteers_Still_Needed__c,
+                       GW_Volunteers__Description__c,
+                       GW_Volunteers__System_Note__c
+                FROM GW_Volunteers__Volunteer_Shift__c
+                WHERE GW_Volunteers__Volunteer_Job__c = '{job_id}'
+                AND GW_Volunteers__Start_Date_Time__c != null
+                ORDER BY GW_Volunteers__Start_Date_Time__c DESC
+                LIMIT 50
+            """)
+            
+            print(f"  Job {job['Name']}: {len(shifts['records'])} shifts with dates")
+            
+            # Add each shift with a date as an opportunity
+            for shift in shifts['records']:
+                shift_date = shift.get('GW_Volunteers__Start_Date_Time__c')
+                if shift_date is not None and shift_date != '':
+                    print(f"    Adding shift: {shift['Name']} on {shift_date}")
+                    all_opportunities.append({
+                        'job': job,
+                        'shift': shift
+                    })
+                
+    except Exception as e:
+        print(f"Error querying Programs and V4S objects: {e}")
+    
+    result = {
+        'records': all_opportunities,
+        'totalSize': len(all_opportunities)
+    }
+    
+    print(json.dumps(result))
+    
+except ImportError:
+    print(json.dumps({"error": "simple-salesforce not installed"}))
+except Exception as e:
+    print(json.dumps({"error": str(e)}))
+`;
+
+    try {
+      const result = await this.executePythonScript(scriptContent);
+      if (result.error) {
+        console.error('Salesforce sync error:', result.error);
+        return [];
+      }
+
+      // Transform V4S data to local format
+      return result.records?.map((item: any) => {
+        const job = item.job;
+        const shift = item.shift;
+        
+        // Determine category based on job name
+        let category = 'Volunteer Opportunity';
+        if (job.Name?.toLowerCase().includes('coach')) {
+          category = 'Financial Coaching';
+        } else if (job.Name?.toLowerCase().includes('presenter')) {
+          category = 'Workshop Presenting';
+        } else if (job.Name?.toLowerCase().includes('observer')) {
+          category = 'Workshop Observing';
+        } else if (job.Name?.toLowerCase().includes('admin')) {
+          category = 'Administrative Support';
+        }
+        
+        // Parse date and time from shift
+        const shiftDate = shift.GW_Volunteers__Start_Date_Time__c 
+          ? new Date(shift.GW_Volunteers__Start_Date_Time__c)
+          : null;
+          
+        // Skip shifts without dates
+        if (!shiftDate || isNaN(shiftDate.getTime())) {
+          return null;
+        }
+          
+        const duration = shift.GW_Volunteers__Duration__c || 1;
+        const endTime = new Date(shiftDate.getTime() + (duration * 60 * 60 * 1000));
+        
+        // Handle volunteer spots safely
+        const totalSpots = shift.GW_Volunteers__Total_Volunteers__c || 1;
+        const stillNeeded = shift.GW_Volunteers__Number_of_Volunteers_Still_Needed__c || 0;
+        const filledSpots = totalSpots > 0 ? Math.max(0, totalSpots - stillNeeded) : 0;
+        
+        // Include shift name or date in title to differentiate
+        const shiftLabel = shift.Name || shiftDate.toLocaleDateString('en-US', { 
+          month: 'short', 
+          day: 'numeric',
+          year: 'numeric'
+        });
+        
+        return {
+          id: shift.Id,
+          salesforceId: shift.Id,
+          title: `${job.Name || 'Volunteer Opportunity'} (${shiftLabel})`,
+          description: shift.GW_Volunteers__Description__c || job.GW_Volunteers__Description__c || 'Join us for this volunteer opportunity',
+          organization: "Women's Money Matters",
+          category: category,
+          date: shiftDate,
+          startTime: shiftDate.toLocaleTimeString('en-US', { 
+            hour: 'numeric', 
+            minute: '2-digit', 
+            hour12: true 
+          }),
+          endTime: endTime.toLocaleTimeString('en-US', { 
+            hour: 'numeric', 
+            minute: '2-digit', 
+            hour12: true 
+          }),
+          location: job.GW_Volunteers__Location__c || 'Location TBD',
+          totalSpots: totalSpots,
+          filledSpots: filledSpots,
+          contactEmail: 'volunteer@womensmoneymatters.org',
+          status: job.GW_Volunteers__Display_on_Website__c ? 'active' : 'inactive',
+          imageUrl: null,
+          requirements: job.GW_Volunteers__Skills_Needed__c || null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          // V4S specific fields
+          jobId: job.Id,
+          shiftId: shift.Id,
+          campaignId: job.GW_Volunteers__Campaign__c || null,
+          duration: duration,
+          skillsNeeded: job.GW_Volunteers__Skills_Needed__c || null,
+          displayOnWebsite: job.GW_Volunteers__Display_on_Website__c || false
+        };
+      }).filter(Boolean) || [];
+    } catch (error) {
+      console.error('Failed to sync opportunities from Salesforce:', error);
+      return [];
+    }
   }
 
   async syncV4SOpportunities(): Promise<Opportunity[]> {
