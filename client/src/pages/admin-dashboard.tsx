@@ -114,6 +114,27 @@ export default function AdminDashboard() {
     setLoading(false);
   };
 
+  const seedData = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch('/api/seed', {
+        method: 'POST',
+        credentials: 'include'
+      });
+      const result = await response.json();
+      setSyncResult(result);
+      if (result.success) {
+        alert(`Successfully seeded ${result.opportunitiesCount} opportunities!`);
+      }
+    } catch (error) {
+      setSyncResult({
+        success: false,
+        message: `Network error: ${error}`
+      });
+    }
+    setLoading(false);
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <Header />
@@ -396,6 +417,25 @@ export default function AdminDashboard() {
                     )}
                   </div>
                 )}
+              </CardContent>
+            </Card>
+
+            {/* Seed Real Data */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Seed Real Program Data</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <p className="text-sm text-muted-foreground">
+                  Load real program data based on SignUpGenius examples (Financial Futures, Life Launch Collective, etc.)
+                </p>
+                <Button 
+                  onClick={seedData} 
+                  disabled={loading}
+                  className="w-full bg-green-600 hover:bg-green-700"
+                >
+                  {loading ? "Seeding..." : "Seed Real Data"}
+                </Button>
               </CardContent>
             </Card>
 

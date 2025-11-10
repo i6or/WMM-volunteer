@@ -596,6 +596,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.status(204).send();
   });
 
+  // Seed data endpoint (for development/testing)
+  app.post("/api/seed", async (req, res) => {
+    try {
+      const { seedRealData } = await import("./seed-data");
+      const result = await seedRealData();
+      res.json({ 
+        success: true, 
+        message: "Data seeded successfully",
+        ...result
+      });
+    } catch (error) {
+      console.error("Seed error:", error);
+      res.status(500).json({ 
+        success: false, 
+        message: `Seed failed: ${error}` 
+      });
+    }
+  });
+
   // Dashboard stats endpoint
   app.get("/api/stats", async (req, res) => {
     try {

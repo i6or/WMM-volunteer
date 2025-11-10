@@ -57,9 +57,14 @@ export default function Home() {
               <p className="text-green-100 text-lg mb-6 max-w-2xl">
                 Join our mission to build financial wellness, confidence, and security for women and girls living on low incomes through coaching and workshops.
               </p>
-              <Button className="bg-white text-primary hover:bg-green-50" data-testid="button-browse">
-                Volunteer Today
-              </Button>
+              <div className="flex gap-4">
+                <Button className="bg-white text-primary hover:bg-green-50" data-testid="button-browse" asChild>
+                  <a href="/coaching-opportunities">Browse Coaching Opportunities</a>
+                </Button>
+                <Button variant="outline" className="bg-white/10 text-white border-white/30 hover:bg-white/20" asChild>
+                  <a href="/register">Register as Volunteer</a>
+                </Button>
+              </div>
             </div>
             <div className="absolute right-0 top-0 w-32 h-32 bg-white/10 rounded-full -translate-y-16 translate-x-16"></div>
             <div className="absolute right-20 bottom-0 w-16 h-16 bg-white/10 rounded-full translate-y-8"></div>
