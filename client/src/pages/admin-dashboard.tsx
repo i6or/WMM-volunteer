@@ -32,6 +32,8 @@ export default function AdminDashboard() {
   const [selectedObject, setSelectedObject] = useState<string | null>(null);
   const [queryResult, setQueryResult] = useState<any>(null);
   const [syncResult, setSyncResult] = useState<any>(null);
+  const [programsResult, setProgramsResult] = useState<any>(null);
+  const [workshopsResult, setWorkshopsResult] = useState<any>(null);
 
   // Fetch dashboard stats
   const { data: stats } = useQuery({
@@ -128,6 +130,40 @@ export default function AdminDashboard() {
       }
     } catch (error) {
       setSyncResult({
+        success: false,
+        message: `Network error: ${error}`
+      });
+    }
+    setLoading(false);
+  };
+
+  const queryPrograms = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch('/api/salesforce/programs', {
+        credentials: 'include'
+      });
+      const result = await response.json();
+      setProgramsResult(result);
+    } catch (error) {
+      setProgramsResult({
+        success: false,
+        message: `Network error: ${error}`
+      });
+    }
+    setLoading(false);
+  };
+
+  const queryProgramsWithWorkshops = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch('/api/salesforce/programs-with-workshops', {
+        credentials: 'include'
+      });
+      const result = await response.json();
+      setWorkshopsResult(result);
+    } catch (error) {
+      setWorkshopsResult({
         success: false,
         message: `Network error: ${error}`
       });
@@ -414,6 +450,93 @@ export default function AdminDashboard() {
                         <Badge variant="destructive">Failed</Badge>
                         <span>{objectsResult.message}</span>
                       </div>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Query Programs from Salesforce */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Query Programs from Salesforce</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <p className="text-sm text-muted-foreground">
+                  Query all Programs from Salesforce, then fetch Workshops for each Program.
+                </p>
+                <div className="flex gap-2">
+                  <Button 
+                    onClick={queryPrograms} 
+                    disabled={loading || !connectionResult?.success}
+                    className="flex-1"
+                  >
+                    {loading ? "Querying..." : "Query Programs"}
+                  </Button>
+                  <Button 
+                    onClick={queryProgramsWithWorkshops} 
+                    disabled={loading || !connectionResult?.success}
+                    className="flex-1 bg-blue-600 hover:bg-blue-700"
+                  >
+                    {loading ? "Loading..." : "Programs + Workshops"}
+                  </Button>
+                </div>
+                
+                {programsResult && (
+                  <div className={`p-4 rounded-lg ${
+                    programsResult.success ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'
+                  }`}>
+                    <div className="flex items-center gap-2 mb-2">
+                      <Badge variant={programsResult.success ? "default" : "destructive"}>
+                        {programsResult.success ? "Success" : "Failed"}
+                      </Badge>
+                      <span className="text-sm font-medium">
+                        Found {programsResult.count || 0} Programs
+                      </span>
+                    </div>
+                    {programsResult.success && programsResult.programs && (
+                      <div className="mt-2 max-h-60 overflow-y-auto">
+                        <pre className="text-xs bg-white p-2 rounded border">
+                          {JSON.stringify(programsResult.programs.slice(0, 3), null, 2)}
+                          {programsResult.programs.length > 3 && `\n... and ${programsResult.programs.length - 3} more`}
+                        </pre>
+                      </div>
+                    )}
+                    {!programsResult.success && (
+                      <p className="text-sm text-red-700">{programsResult.message}</p>
+                    )}
+                  </div>
+                )}
+
+                {workshopsResult && (
+                  <div className={`p-4 rounded-lg ${
+                    workshopsResult.success ? 'bg-blue-50 border border-blue-200' : 'bg-red-50 border border-red-200'
+                  }`}>
+                    <div className="flex items-center gap-2 mb-2">
+                      <Badge variant={workshopsResult.success ? "default" : "destructive"}>
+                        {workshopsResult.success ? "Success" : "Failed"}
+                      </Badge>
+                      <span className="text-sm font-medium">
+                        Found {workshopsResult.count || 0} Programs with Workshops
+                      </span>
+                    </div>
+                    {workshopsResult.success && workshopsResult.data && (
+                      <div className="mt-2 space-y-2">
+                        {workshopsResult.data.slice(0, 2).map((item: any, idx: number) => (
+                          <div key={idx} className="bg-white p-2 rounded border text-xs">
+                            <div className="font-semibold">{item.program.Name}</div>
+                            <div className="text-gray-600">{item.workshops.length} workshops</div>
+                          </div>
+                        ))}
+                        {workshopsResult.data.length > 2 && (
+                          <div className="text-xs text-gray-600">
+                            ... and {workshopsResult.data.length - 2} more programs
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    {!workshopsResult.success && (
+                      <p className="text-sm text-red-700">{workshopsResult.message}</p>
                     )}
                   </div>
                 )}

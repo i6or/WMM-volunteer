@@ -1,5 +1,6 @@
 import { spawn } from 'child_process';
 import { type Volunteer, type Opportunity } from '@shared/schema';
+import { SalesforceProgramService } from "./salesforce-programs";
 
 interface SalesforceConfig {
   username: string;
@@ -10,6 +11,7 @@ interface SalesforceConfig {
 
 export class SalesforceService {
   private config: SalesforceConfig;
+  public programService: SalesforceProgramService;
 
   constructor() {
     this.config = {
@@ -18,6 +20,7 @@ export class SalesforceService {
       securityToken: process.env.SALESFORCE_SECURITY_TOKEN || '',
       domain: process.env.SALESFORCE_DOMAIN || 'login',
     };
+    this.programService = new SalesforceProgramService(this);
   }
 
   private async executePythonScript(scriptContent: string): Promise<any> {

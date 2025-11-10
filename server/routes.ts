@@ -338,6 +338,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Query Programs from Salesforce
+  app.get("/api/salesforce/programs", async (req, res) => {
+    try {
+      const programs = await salesforceService.programService.getPrograms();
+      res.json({ 
+        success: true,
+        programs,
+        count: programs.length
+      });
+    } catch (error) {
+      console.error("Failed to query Programs:", error);
+      res.status(500).json({ 
+        success: false, 
+        message: `Failed to query Programs: ${error}` 
+      });
+    }
+  });
+
+  // Query Workshops for a specific Program
+  app.get("/api/salesforce/programs/:programId/workshops", async (req, res) => {
+    try {
+      const { programId } = req.params;
+      const workshops = await salesforceService.programService.getWorkshopsForProgram(programId);
+      res.json({ 
+        success: true,
+        programId,
+        workshops,
+        count: workshops.length
+      });
+    } catch (error) {
+      console.error(`Failed to query Workshops for Program ${req.params.programId}:`, error);
+      res.status(500).json({ 
+        success: false, 
+        message: `Failed to query Workshops: ${error}` 
+      });
+    }
+  });
+
+  // Get all Programs with their Workshops
+  app.get("/api/salesforce/programs-with-workshops", async (req, res) => {
+    try {
+      const programsWithWorkshops = await salesforceService.programService.getProgramsWithWorkshops();
+      res.json({ 
+        success: true,
+        data: programsWithWorkshops,
+        count: programsWithWorkshops.length
+      });
+    } catch (error) {
+      console.error("Failed to query Programs with Workshops:", error);
+      res.status(500).json({ 
+        success: false, 
+        message: `Failed to query Programs with Workshops: ${error}` 
+      });
+    }
+  });
+
   // Program routes
   app.get("/api/programs", async (req, res) => {
     try {
