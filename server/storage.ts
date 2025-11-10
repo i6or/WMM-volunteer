@@ -1,4 +1,4 @@
-import { type Volunteer, type InsertVolunteer, type Opportunity, type InsertOpportunity, type VolunteerSignup, type InsertVolunteerSignup, volunteers, opportunities, volunteerSignups } from "@shared/schema";
+import { type Volunteer, type InsertVolunteer, type Opportunity, type InsertOpportunity, type VolunteerSignup, type InsertVolunteerSignup, type Program, type InsertProgram, type Workshop, type InsertWorkshop, type Participant, type InsertParticipant, type ParticipantWorkshop, type InsertParticipantWorkshop, volunteers, opportunities, volunteerSignups, programs, workshops, participants, participantWorkshops } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { db } from "./db";
 import { eq, and, ilike, sql, count } from "drizzle-orm";
@@ -19,12 +19,40 @@ export interface IStorage {
   createOpportunity(opportunity: InsertOpportunity): Promise<Opportunity>;
   updateOpportunity(id: string, opportunity: Partial<Opportunity>): Promise<Opportunity | undefined>;
   deleteOpportunity(id: string): Promise<boolean>;
-  getAllOpportunities(filters?: { category?: string; date?: string; search?: string }): Promise<Opportunity[]>;
+  getAllOpportunities(filters?: { category?: string; date?: string; search?: string; programId?: string }): Promise<Opportunity[]>;
   
   // Volunteer signup operations
   signupVolunteer(signup: InsertVolunteerSignup): Promise<VolunteerSignup>;
   getVolunteerSignups(volunteerId?: string, opportunityId?: string): Promise<VolunteerSignup[]>;
   cancelSignup(volunteerId: string, opportunityId: string): Promise<boolean>;
+
+  // Program operations
+  getProgram(id: string): Promise<Program | undefined>;
+  createProgram(program: InsertProgram): Promise<Program>;
+  updateProgram(id: string, program: Partial<Program>): Promise<Program | undefined>;
+  deleteProgram(id: string): Promise<boolean>;
+  getAllPrograms(filters?: { status?: string; search?: string }): Promise<Program[]>;
+
+  // Workshop operations
+  getWorkshop(id: string): Promise<Workshop | undefined>;
+  createWorkshop(workshop: InsertWorkshop): Promise<Workshop>;
+  updateWorkshop(id: string, workshop: Partial<Workshop>): Promise<Workshop | undefined>;
+  deleteWorkshop(id: string): Promise<boolean>;
+  getAllWorkshops(filters?: { programId?: string; status?: string; search?: string }): Promise<Workshop[]>;
+
+  // Participant operations
+  getParticipant(id: string): Promise<Participant | undefined>;
+  getParticipantByEmail(email: string): Promise<Participant | undefined>;
+  createParticipant(participant: InsertParticipant): Promise<Participant>;
+  updateParticipant(id: string, participant: Partial<Participant>): Promise<Participant | undefined>;
+  deleteParticipant(id: string): Promise<boolean>;
+  getAllParticipants(filters?: { programId?: string; status?: string; search?: string }): Promise<Participant[]>;
+
+  // Participant-Workshop operations
+  registerParticipantForWorkshop(registration: InsertParticipantWorkshop): Promise<ParticipantWorkshop>;
+  getParticipantWorkshops(participantId?: string, workshopId?: string): Promise<ParticipantWorkshop[]>;
+  updateParticipantWorkshop(id: string, updates: Partial<ParticipantWorkshop>): Promise<ParticipantWorkshop | undefined>;
+  removeParticipantFromWorkshop(participantId: string, workshopId: string): Promise<boolean>;
 }
 
 export class MemStorage implements IStorage {
@@ -474,11 +502,15 @@ export class DatabaseStorage implements IStorage {
     return (result.rowCount || 0) > 0;
   }
 
-  async getAllOpportunities(filters?: { category?: string; date?: string; search?: string }): Promise<Opportunity[]> {
+  async getAllOpportunities(filters?: { category?: string; date?: string; search?: string; programId?: string }): Promise<Opportunity[]> {
     let conditions = [];
 
     if (filters?.category && filters.category !== "all") {
       conditions.push(eq(opportunities.category, filters.category));
+    }
+
+    if (filters?.programId) {
+      conditions.push(eq(opportunities.programId, filters.programId));
     }
 
     if (filters?.date) {
@@ -556,6 +588,255 @@ export class DatabaseStorage implements IStorage {
           updatedAt: new Date()
         })
         .where(eq(opportunities.id, opportunityId));
+      
+      return true;
+    }
+
+    return false;
+  }
+
+  // Program operations
+  async getProgram(id: string): Promise<Program | undefined> {
+    const [program] = await db.select().from(programs).where(eq(programs.id, id));
+    return program || undefined;
+  }
+
+  async createProgram(insertProgram: InsertProgram): Promise<Program> {
+    const id = randomUUID();
+    const program: Program = {
+      ...insertProgram,
+      id,
+      salesforceId: null,
+      status: insertProgram.status || "active",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    const [created] = await db.insert(programs).values(program).returning();
+    return created;
+  }
+
+  async updateProgram(id: string, updates: Partial<Program>): Promise<Program | undefined> {
+    const [updated] = await db.update(programs)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(programs.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deleteProgram(id: string): Promise<boolean> {
+    const result = await db.delete(programs).where(eq(programs.id, id));
+    return (result.rowCount || 0) > 0;
+  }
+
+  async getAllPrograms(filters?: { status?: string; search?: string }): Promise<Program[]> {
+    let conditions = [];
+
+    if (filters?.status && filters.status !== "all") {
+      conditions.push(eq(programs.status, filters.status));
+    }
+
+    if (filters?.search) {
+      conditions.push(
+        sql`${programs.name} ILIKE ${'%' + filters.search + '%'} OR ${programs.description} ILIKE ${'%' + filters.search + '%'}`
+      );
+    }
+
+    const query = conditions.length > 0 
+      ? db.select().from(programs).where(and(...conditions))
+      : db.select().from(programs);
+
+    return await query;
+  }
+
+  // Workshop operations
+  async getWorkshop(id: string): Promise<Workshop | undefined> {
+    const [workshop] = await db.select().from(workshops).where(eq(workshops.id, id));
+    return workshop || undefined;
+  }
+
+  async createWorkshop(insertWorkshop: InsertWorkshop): Promise<Workshop> {
+    const id = randomUUID();
+    const workshop: Workshop = {
+      ...insertWorkshop,
+      id,
+      salesforceId: null,
+      currentParticipants: 0,
+      status: insertWorkshop.status || "scheduled",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    const [created] = await db.insert(workshops).values(workshop).returning();
+    return created;
+  }
+
+  async updateWorkshop(id: string, updates: Partial<Workshop>): Promise<Workshop | undefined> {
+    const [updated] = await db.update(workshops)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(workshops.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deleteWorkshop(id: string): Promise<boolean> {
+    const result = await db.delete(workshops).where(eq(workshops.id, id));
+    return (result.rowCount || 0) > 0;
+  }
+
+  async getAllWorkshops(filters?: { programId?: string; status?: string; search?: string }): Promise<Workshop[]> {
+    let conditions = [];
+
+    if (filters?.programId) {
+      conditions.push(eq(workshops.programId, filters.programId));
+    }
+
+    if (filters?.status && filters.status !== "all") {
+      conditions.push(eq(workshops.status, filters.status));
+    }
+
+    if (filters?.search) {
+      conditions.push(
+        sql`${workshops.title} ILIKE ${'%' + filters.search + '%'} OR ${workshops.description} ILIKE ${'%' + filters.search + '%'}`
+      );
+    }
+
+    const query = conditions.length > 0 
+      ? db.select().from(workshops).where(and(...conditions))
+      : db.select().from(workshops);
+
+    return await query;
+  }
+
+  // Participant operations
+  async getParticipant(id: string): Promise<Participant | undefined> {
+    const [participant] = await db.select().from(participants).where(eq(participants.id, id));
+    return participant || undefined;
+  }
+
+  async getParticipantByEmail(email: string): Promise<Participant | undefined> {
+    const [participant] = await db.select().from(participants).where(eq(participants.email, email));
+    return participant || undefined;
+  }
+
+  async createParticipant(insertParticipant: InsertParticipant): Promise<Participant> {
+    const id = randomUUID();
+    const participant: Participant = {
+      ...insertParticipant,
+      id,
+      salesforceId: null,
+      status: insertParticipant.status || "enrolled",
+      enrollmentDate: new Date(),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    const [created] = await db.insert(participants).values(participant).returning();
+    return created;
+  }
+
+  async updateParticipant(id: string, updates: Partial<Participant>): Promise<Participant | undefined> {
+    const [updated] = await db.update(participants)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(participants.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deleteParticipant(id: string): Promise<boolean> {
+    const result = await db.delete(participants).where(eq(participants.id, id));
+    return (result.rowCount || 0) > 0;
+  }
+
+  async getAllParticipants(filters?: { programId?: string; status?: string; search?: string }): Promise<Participant[]> {
+    let conditions = [];
+
+    if (filters?.programId) {
+      conditions.push(eq(participants.programId, filters.programId));
+    }
+
+    if (filters?.status && filters.status !== "all") {
+      conditions.push(eq(participants.status, filters.status));
+    }
+
+    if (filters?.search) {
+      conditions.push(
+        sql`${participants.firstName} ILIKE ${'%' + filters.search + '%'} OR ${participants.lastName} ILIKE ${'%' + filters.search + '%'} OR ${participants.email} ILIKE ${'%' + filters.search + '%'}`
+      );
+    }
+
+    const query = conditions.length > 0 
+      ? db.select().from(participants).where(and(...conditions))
+      : db.select().from(participants);
+
+    return await query;
+  }
+
+  // Participant-Workshop operations
+  async registerParticipantForWorkshop(registration: InsertParticipantWorkshop): Promise<ParticipantWorkshop> {
+    const id = randomUUID();
+    const participantWorkshop: ParticipantWorkshop = {
+      ...registration,
+      id,
+      attendanceStatus: registration.attendanceStatus || "registered",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    const [created] = await db.insert(participantWorkshops).values(participantWorkshop).returning();
+
+    // Update workshop current participants count
+    await db.update(workshops)
+      .set({ 
+        currentParticipants: sql`${workshops.currentParticipants} + 1`,
+        updatedAt: new Date()
+      })
+      .where(eq(workshops.id, registration.workshopId));
+
+    return created;
+  }
+
+  async getParticipantWorkshops(participantId?: string, workshopId?: string): Promise<ParticipantWorkshop[]> {
+    let conditions = [];
+
+    if (participantId) {
+      conditions.push(eq(participantWorkshops.participantId, participantId));
+    }
+
+    if (workshopId) {
+      conditions.push(eq(participantWorkshops.workshopId, workshopId));
+    }
+
+    const query = conditions.length > 0 
+      ? db.select().from(participantWorkshops).where(and(...conditions))
+      : db.select().from(participantWorkshops);
+
+    return await query;
+  }
+
+  async updateParticipantWorkshop(id: string, updates: Partial<ParticipantWorkshop>): Promise<ParticipantWorkshop | undefined> {
+    const [updated] = await db.update(participantWorkshops)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(participantWorkshops.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async removeParticipantFromWorkshop(participantId: string, workshopId: string): Promise<boolean> {
+    const result = await db.delete(participantWorkshops)
+      .where(and(
+        eq(participantWorkshops.participantId, participantId),
+        eq(participantWorkshops.workshopId, workshopId)
+      ));
+
+    if ((result.rowCount || 0) > 0) {
+      // Update workshop current participants count
+      await db.update(workshops)
+        .set({ 
+          currentParticipants: sql`GREATEST(${workshops.currentParticipants} - 1, 0)`,
+          updatedAt: new Date()
+        })
+        .where(eq(workshops.id, workshopId));
       
       return true;
     }

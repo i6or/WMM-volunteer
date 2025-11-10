@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { salesforceService } from "./services/salesforce";
-import { insertVolunteerSchema, insertOpportunitySchema, insertVolunteerSignupSchema } from "@shared/schema";
+import { insertVolunteerSchema, insertOpportunitySchema, insertVolunteerSignupSchema, insertProgramSchema, insertWorkshopSchema, insertParticipantSchema, insertParticipantWorkshopSchema } from "@shared/schema";
 import { z } from "zod";
 
 const volunteerQuerySchema = z.object({
@@ -15,6 +15,24 @@ const volunteerQuerySchema = z.object({
 const opportunityQuerySchema = z.object({
   category: z.string().optional(),
   date: z.string().optional(),
+  search: z.string().optional(),
+  programId: z.string().optional(),
+});
+
+const programQuerySchema = z.object({
+  status: z.string().optional(),
+  search: z.string().optional(),
+});
+
+const workshopQuerySchema = z.object({
+  programId: z.string().optional(),
+  status: z.string().optional(),
+  search: z.string().optional(),
+});
+
+const participantQuerySchema = z.object({
+  programId: z.string().optional(),
+  status: z.string().optional(),
   search: z.string().optional(),
 });
 
@@ -318,6 +336,264 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       res.status(500).json({ message: "Sync failed" });
     }
+  });
+
+  // Program routes
+  app.get("/api/programs", async (req, res) => {
+    try {
+      const filters = programQuerySchema.parse(req.query);
+      const programs = await storage.getAllPrograms(filters);
+      res.json(programs);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid query parameters" });
+    }
+  });
+
+  app.get("/api/programs/:id", async (req, res) => {
+    const program = await storage.getProgram(req.params.id);
+    if (!program) {
+      return res.status(404).json({ message: "Program not found" });
+    }
+    res.json(program);
+  });
+
+  app.post("/api/programs", async (req, res) => {
+    try {
+      const programData = insertProgramSchema.parse(req.body);
+      const program = await storage.createProgram(programData);
+      res.status(201).json(program);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ 
+          message: "Validation failed", 
+          errors: error.errors 
+        });
+      }
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.put("/api/programs/:id", async (req, res) => {
+    try {
+      const updateData = req.body;
+      const program = await storage.updateProgram(req.params.id, updateData);
+      
+      if (!program) {
+        return res.status(404).json({ message: "Program not found" });
+      }
+
+      res.json(program);
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.delete("/api/programs/:id", async (req, res) => {
+    const success = await storage.deleteProgram(req.params.id);
+    if (!success) {
+      return res.status(404).json({ message: "Program not found" });
+    }
+    res.status(204).send();
+  });
+
+  // Workshop routes
+  app.get("/api/workshops", async (req, res) => {
+    try {
+      const filters = workshopQuerySchema.parse(req.query);
+      const workshops = await storage.getAllWorkshops(filters);
+      res.json(workshops);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid query parameters" });
+    }
+  });
+
+  app.get("/api/workshops/:id", async (req, res) => {
+    const workshop = await storage.getWorkshop(req.params.id);
+    if (!workshop) {
+      return res.status(404).json({ message: "Workshop not found" });
+    }
+    res.json(workshop);
+  });
+
+  app.post("/api/workshops", async (req, res) => {
+    try {
+      const workshopData = insertWorkshopSchema.parse(req.body);
+      const workshop = await storage.createWorkshop(workshopData);
+      res.status(201).json(workshop);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ 
+          message: "Validation failed", 
+          errors: error.errors 
+        });
+      }
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.put("/api/workshops/:id", async (req, res) => {
+    try {
+      const updateData = req.body;
+      const workshop = await storage.updateWorkshop(req.params.id, updateData);
+      
+      if (!workshop) {
+        return res.status(404).json({ message: "Workshop not found" });
+      }
+
+      res.json(workshop);
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.delete("/api/workshops/:id", async (req, res) => {
+    const success = await storage.deleteWorkshop(req.params.id);
+    if (!success) {
+      return res.status(404).json({ message: "Workshop not found" });
+    }
+    res.status(204).send();
+  });
+
+  // Participant routes
+  app.get("/api/participants", async (req, res) => {
+    try {
+      const filters = participantQuerySchema.parse(req.query);
+      const participants = await storage.getAllParticipants(filters);
+      res.json(participants);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid query parameters" });
+    }
+  });
+
+  app.get("/api/participants/:id", async (req, res) => {
+    const participant = await storage.getParticipant(req.params.id);
+    if (!participant) {
+      return res.status(404).json({ message: "Participant not found" });
+    }
+    res.json(participant);
+  });
+
+  app.post("/api/participants", async (req, res) => {
+    try {
+      const participantData = insertParticipantSchema.parse(req.body);
+      
+      // Check if email already exists
+      const existingParticipant = await storage.getParticipantByEmail(participantData.email);
+      if (existingParticipant) {
+        return res.status(400).json({ message: "Email already registered" });
+      }
+
+      const participant = await storage.createParticipant(participantData);
+      res.status(201).json(participant);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ 
+          message: "Validation failed", 
+          errors: error.errors 
+        });
+      }
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.put("/api/participants/:id", async (req, res) => {
+    try {
+      const updateData = req.body;
+      const participant = await storage.updateParticipant(req.params.id, updateData);
+      
+      if (!participant) {
+        return res.status(404).json({ message: "Participant not found" });
+      }
+
+      res.json(participant);
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.delete("/api/participants/:id", async (req, res) => {
+    const success = await storage.deleteParticipant(req.params.id);
+    if (!success) {
+      return res.status(404).json({ message: "Participant not found" });
+    }
+    res.status(204).send();
+  });
+
+  // Participant-Workshop registration routes
+  app.post("/api/participant-workshops", async (req, res) => {
+    try {
+      const registrationData = insertParticipantWorkshopSchema.parse(req.body);
+      
+      // Check if participant exists
+      const participant = await storage.getParticipant(registrationData.participantId);
+      if (!participant) {
+        return res.status(404).json({ message: "Participant not found" });
+      }
+
+      // Check if workshop exists and has available spots
+      const workshop = await storage.getWorkshop(registrationData.workshopId);
+      if (!workshop) {
+        return res.status(404).json({ message: "Workshop not found" });
+      }
+
+      const currentParticipants = workshop.currentParticipants || 0;
+      if (workshop.maxParticipants && currentParticipants >= workshop.maxParticipants) {
+        return res.status(400).json({ message: "Workshop is full" });
+      }
+
+      // Check if participant is already registered
+      const existingRegistrations = await storage.getParticipantWorkshops(
+        registrationData.participantId,
+        registrationData.workshopId
+      );
+      if (existingRegistrations.length > 0) {
+        return res.status(400).json({ message: "Already registered for this workshop" });
+      }
+
+      const registration = await storage.registerParticipantForWorkshop(registrationData);
+      res.status(201).json(registration);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ 
+          message: "Validation failed", 
+          errors: error.errors 
+        });
+      }
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get("/api/participant-workshops", async (req, res) => {
+    const { participantId, workshopId } = req.query;
+    const registrations = await storage.getParticipantWorkshops(
+      participantId as string,
+      workshopId as string
+    );
+    res.json(registrations);
+  });
+
+  app.put("/api/participant-workshops/:id", async (req, res) => {
+    try {
+      const updateData = req.body;
+      const registration = await storage.updateParticipantWorkshop(req.params.id, updateData);
+      
+      if (!registration) {
+        return res.status(404).json({ message: "Registration not found" });
+      }
+
+      res.json(registration);
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.delete("/api/participant-workshops/:participantId/:workshopId", async (req, res) => {
+    const { participantId, workshopId } = req.params;
+    const success = await storage.removeParticipantFromWorkshop(participantId, workshopId);
+    if (!success) {
+      return res.status(404).json({ message: "Registration not found" });
+    }
+    res.status(204).send();
   });
 
   // Dashboard stats endpoint
