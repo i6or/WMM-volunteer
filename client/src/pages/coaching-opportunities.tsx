@@ -136,12 +136,29 @@ export default function CoachingOpportunities() {
     },
   });
 
-  // Group opportunities by program and then by category/type
-  const programsWithOpportunities: ProgramWithOpportunities[] = (programs || [])
+  // Separate opportunities into Coaching and Presenter categories
+  const isCoachingCategory = (category: string) => {
+    const coachingCategories = [
+      "Financial Coaching",
+      "Program Tech",
+      "Program Support",
+      "Administrative Support"
+    ];
+    return coachingCategories.some(cc => category.includes(cc) || cc.includes(category));
+  };
+
+  const isPresenterCategory = (category: string) => {
+    return category.includes("Presenting") || category.includes("Presenter");
+  };
+
+  // Group opportunities by program and separate by Coaching vs Presenter
+  const programsWithCoaching: ProgramWithOpportunities[] = (programs || [])
     .map(program => {
-      const programOpps = (opportunities || []).filter(opp => opp.programId === program.id);
+      const programOpps = (opportunities || []).filter(opp => 
+        opp.programId === program.id && isCoachingCategory(opp.category || "")
+      );
       
-      // Group opportunities by category/type
+      // Group coaching opportunities by category/type
       const opportunitiesByType = programOpps.reduce((acc, opp) => {
         const type = opp.category || "Other";
         if (!acc[type]) {
@@ -159,7 +176,35 @@ export default function CoachingOpportunities() {
     })
     .filter(pwo => pwo.opportunities.length > 0)
     .sort((a, b) => {
-      // Sort by program start date
+      const dateA = a.program.startDate ? new Date(a.program.startDate).getTime() : 0;
+      const dateB = b.program.startDate ? new Date(b.program.startDate).getTime() : 0;
+      return dateA - dateB;
+    });
+
+  const programsWithPresenting: ProgramWithOpportunities[] = (programs || [])
+    .map(program => {
+      const programOpps = (opportunities || []).filter(opp => 
+        opp.programId === program.id && isPresenterCategory(opp.category || "")
+      );
+      
+      // Group presenter opportunities by category/type
+      const opportunitiesByType = programOpps.reduce((acc, opp) => {
+        const type = opp.category || "Other";
+        if (!acc[type]) {
+          acc[type] = [];
+        }
+        acc[type].push(opp);
+        return acc;
+      }, {} as Record<string, Opportunity[]>);
+
+      return {
+        program,
+        opportunities: programOpps,
+        opportunitiesByType,
+      };
+    })
+    .filter(pwo => pwo.opportunities.length > 0)
+    .sort((a, b) => {
       const dateA = a.program.startDate ? new Date(a.program.startDate).getTime() : 0;
       const dateB = b.program.startDate ? new Date(b.program.startDate).getTime() : 0;
       return dateA - dateB;
@@ -231,34 +276,62 @@ export default function CoachingOpportunities() {
           </div>
         </div>
 
-        {/* Programs with Opportunities */}
-        {isLoading ? (
-          <div className="text-center py-12">
-            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-green-600"></div>
-            <p className="mt-4 text-gray-600">Loading opportunities...</p>
-          </div>
-        ) : programsWithOpportunities.length === 0 ? (
-          <Card>
-            <CardContent className="py-12 text-center">
-              <p className="text-gray-600">No opportunities available at this time.</p>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="space-y-4">
-            {programsWithOpportunities.map(({ program, opportunitiesByType }) => {
-              const programDate = program.startDate ? new Date(program.startDate) : null;
-              const programDateStr = programDate 
-                ? programDate.toLocaleDateString('en-US', { 
-                    month: '2-digit', 
-                    day: '2-digit', 
-                    year: 'numeric',
-                    weekday: 'long'
-                  })
-                : "TBD";
+        {/* Coaching Opportunities Section */}
+        <div className="mb-12">
+          <h3 className="text-2xl font-bold text-gray-900 mb-4">Coaching Opportunities</h3>
+          {isLoading ? (
+            <div className="text-center py-12">
+              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-green-600"></div>
+              <p className="mt-4 text-gray-600">Loading opportunities...</p>
+            </div>
+          ) : programsWithCoaching.length === 0 ? (
+            <Card>
+              <CardContent className="py-12 text-center">
+                <p className="text-gray-600">No coaching opportunities available at this time.</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-4">
+              {programsWithCoaching.map(({ program, opportunitiesByType }) => {
+                return renderProgramCard(program, opportunitiesByType);
+              })}
+            </div>
+          )}
+        </div>
 
-              return (
-                <Card key={program.id} className="overflow-hidden">
-                  <CardHeader className="bg-green-700 text-white">
+        {/* Presenter Opportunities Section */}
+        <div className="mb-12">
+          <h3 className="text-2xl font-bold text-gray-900 mb-4">Presenter Opportunities</h3>
+          {isLoading ? (
+            <div className="text-center py-12">
+              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-green-600"></div>
+              <p className="mt-4 text-gray-600">Loading opportunities...</p>
+            </div>
+          ) : programsWithPresenting.length === 0 ? (
+            <Card>
+              <CardContent className="py-12 text-center">
+                <p className="text-gray-600">No presenter opportunities available at this time.</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-4">
+              {programsWithPresenting.map(({ program, opportunitiesByType }) => {
+                return renderProgramCard(program, opportunitiesByType);
+              })}
+            </div>
+          )}
+        </div>
+      </main>
+
+      <Footer />
+    </div>
+  );
+
+  // Helper function to render a program card with opportunities
+  const renderProgramCard = (program: Program, opportunitiesByType: Record<string, Opportunity[]>) => {
+    return (
+      <Card key={program.id} className="overflow-hidden">
+        <CardHeader className="bg-green-700 text-white">
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
                         <CardTitle className="text-2xl mb-2">{program.name}</CardTitle>
@@ -477,13 +550,6 @@ export default function CoachingOpportunities() {
                     </Accordion>
                   </CardContent>
                 </Card>
-              );
-            })}
-          </div>
-        )}
-      </main>
-
-      <Footer />
-    </div>
-  );
+    );
+  };
 }

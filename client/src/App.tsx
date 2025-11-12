@@ -8,6 +8,7 @@ import VolunteerRegistration from "@/pages/volunteer-registration";
 import AdminDashboard from "@/pages/admin-dashboard";
 import CoachingOpportunities from "@/pages/coaching-opportunities";
 import MySignups from "@/pages/my-signups";
+import ProgramsTest from "@/pages/programs-test";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -18,6 +19,7 @@ function Router() {
       <Route path="/admin" component={AdminDashboard} />
       <Route path="/coaching-opportunities" component={CoachingOpportunities} />
       <Route path="/my-signups" component={MySignups} />
+      <Route path="/programs-test" component={ProgramsTest} />
       <Route component={NotFound} />
     </Switch>
   );
