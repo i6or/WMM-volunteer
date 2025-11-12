@@ -169,9 +169,14 @@ try:
     
     try:
         # First, try a simple query to see if we can access Program__c at all
-        test_query = "SELECT Id, Name FROM Program__c LIMIT 1"
+        test_query = "SELECT Id, Name FROM Program__c LIMIT 5"
         test_result = sf.query(test_query)
-        print(f"DEBUG: Test query returned {test_result.get('totalSize', 0)} records", file=sys.stderr)
+        print(f"DEBUG: Test query (no filters) returned {test_result.get('totalSize', 0)} records", file=sys.stderr)
+        
+        # Try query without Status filter
+        test_query2 = "SELECT Id, Name, Program_Start_Date__c FROM Program__c LIMIT 5"
+        test_result2 = sf.query(test_query2)
+        print(f"DEBUG: Test query 2 (with date field) returned {test_result2.get('totalSize', 0)} records", file=sys.stderr)
         
         # Now try the full query
         programs = sf.query(programs_query)
@@ -184,6 +189,8 @@ try:
             "totalSize": programs.get('totalSize', 0),
             "debug": {
                 "testQueryResults": test_result.get('totalSize', 0),
+                "testQuery2Results": test_result2.get('totalSize', 0),
+                "testQuery2Records": test_result2.get('records', [])[:2],  # First 2 records
                 "fullQueryResults": programs.get('totalSize', 0),
                 "query": programs_query
             }

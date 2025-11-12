@@ -440,9 +440,19 @@ export default function AdminDashboard() {
                     {programsResult.success && programsResult.programs && (
                       <div className="mt-2 space-y-2">
                         {programsResult.debug && (
-                          <div className="text-xs text-gray-500 bg-gray-100 p-2 rounded">
-                            <strong>Debug:</strong> Test query: {programsResult.debug.testQueryResults} records, 
-                            Full query: {programsResult.debug.fullQueryResults} records
+                          <div className="text-xs text-gray-500 bg-gray-100 p-2 rounded space-y-1">
+                            <div><strong>Debug Info:</strong></div>
+                            <div>• Test query (no filters): {programsResult.debug.testQueryResults} records</div>
+                            <div>• Test query 2 (with date field): {programsResult.debug.testQuery2Results} records</div>
+                            <div>• Full query (with filters): {programsResult.debug.fullQueryResults} records</div>
+                            {programsResult.debug.testQuery2Records && programsResult.debug.testQuery2Records.length > 0 && (
+                              <div className="mt-2">
+                                <strong>Sample records (no filters):</strong>
+                                <pre className="text-xs bg-white p-1 rounded mt-1">
+                                  {JSON.stringify(programsResult.debug.testQuery2Records, null, 2)}
+                                </pre>
+                              </div>
+                            )}
                           </div>
                         )}
                         {programsResult.programs.length > 0 ? (
