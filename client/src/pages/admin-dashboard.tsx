@@ -143,6 +143,38 @@ export default function AdminDashboard() {
     setLoading(false);
   };
 
+  const syncProgramsToDatabase = async (filterType?: 'currentQuarter' | 'next60Days') => {
+    setLoading(true);
+    try {
+      const body: any = {};
+      if (filterType === 'currentQuarter') {
+        body.currentQuarter = true;
+      } else if (filterType === 'next60Days') {
+        body.next60Days = true;
+      }
+      
+      const response = await fetch('/api/salesforce/sync-programs', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify(body)
+      });
+      const result = await response.json();
+      setSyncResult(result);
+      if (result.success) {
+        alert(`Successfully synced ${result.programsSynced} programs and ${result.workshopsSynced} workshops to database!`);
+      }
+    } catch (error) {
+      setSyncResult({
+        success: false,
+        message: `Network error: ${error}`
+      });
+    }
+    setLoading(false);
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <Header />
@@ -421,6 +453,54 @@ export default function AdminDashboard() {
                       {loading ? "Loading..." : "60 Days + Workshops"}
                     </Button>
                   </div>
+                </div>
+
+                {/* Sync to Database Section */}
+                <div className="pt-4 border-t">
+                  <p className="text-sm font-medium text-muted-foreground mb-2">
+                    Sync to Neon Database
+                  </p>
+                  <div className="flex gap-2">
+                    <Button 
+                      onClick={() => syncProgramsToDatabase()} 
+                      disabled={loading || !connectionResult?.success}
+                      variant="outline"
+                      className="flex-1"
+                    >
+                      {loading ? "Syncing..." : "Sync All Programs"}
+                    </Button>
+                    <Button 
+                      onClick={() => syncProgramsToDatabase('currentQuarter')} 
+                      disabled={loading || !connectionResult?.success}
+                      className="flex-1 bg-green-600 hover:bg-green-700"
+                    >
+                      {loading ? "Syncing..." : "Sync Current Quarter"}
+                    </Button>
+                    <Button 
+                      onClick={() => syncProgramsToDatabase('next60Days')} 
+                      disabled={loading || !connectionResult?.success}
+                      className="flex-1 bg-blue-600 hover:bg-blue-700"
+                    >
+                      {loading ? "Syncing..." : "Sync Next 60 Days"}
+                    </Button>
+                  </div>
+                  {syncResult && (
+                    <div className={`mt-3 p-3 rounded-lg ${
+                      syncResult.success ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'
+                    }`}>
+                      <div className="flex items-center gap-2">
+                        <Badge variant={syncResult.success ? "default" : "destructive"}>
+                          {syncResult.success ? "Success" : "Failed"}
+                        </Badge>
+                        <span className="text-sm font-medium">{syncResult.message}</span>
+                      </div>
+                      {syncResult.success && (
+                        <div className="mt-2 text-xs text-muted-foreground">
+                          Programs synced: {syncResult.programsSynced} | Workshops synced: {syncResult.workshopsSynced}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
                 
                 {programsResult && (
