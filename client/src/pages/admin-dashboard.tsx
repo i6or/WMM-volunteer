@@ -444,12 +444,23 @@ export default function AdminDashboard() {
                             <div><strong>Debug Info:</strong></div>
                             <div>• Test query (no filters): {programsResult.debug.testQueryResults} records</div>
                             <div>• Test query 2 (with date field): {programsResult.debug.testQuery2Results} records</div>
-                            <div>• Full query (with filters): {programsResult.debug.fullQueryResults} records</div>
+                            {programsResult.debug.testQuery3Results !== undefined && (
+                              <div>• Test query 3 (date filter only): {programsResult.debug.testQuery3Results} records</div>
+                            )}
+                            <div>• Full query (all filters): {programsResult.debug.fullQueryResults} records</div>
                             {programsResult.debug.testQuery2Records && programsResult.debug.testQuery2Records.length > 0 && (
                               <div className="mt-2">
                                 <strong>Sample records (no filters):</strong>
-                                <pre className="text-xs bg-white p-1 rounded mt-1">
+                                <pre className="text-xs bg-white p-1 rounded mt-1 max-h-40 overflow-auto">
                                   {JSON.stringify(programsResult.debug.testQuery2Records, null, 2)}
+                                </pre>
+                              </div>
+                            )}
+                            {programsResult.debug.testQuery3Records && programsResult.debug.testQuery3Records.length > 0 && (
+                              <div className="mt-2">
+                                <strong>Sample records (date filter only):</strong>
+                                <pre className="text-xs bg-white p-1 rounded mt-1 max-h-40 overflow-auto">
+                                  {JSON.stringify(programsResult.debug.testQuery3Records, null, 2)}
                                 </pre>
                               </div>
                             )}

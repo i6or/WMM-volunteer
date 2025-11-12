@@ -152,13 +152,15 @@ try:
     else:
         date_filter = ""
     
-    # Build the WHERE clause - try without Status filter first if date filter is used
+    # Build the WHERE clause
+    # Note: Status field might be Status__c or Status_a__c, and values might be different
+    # For now, don't filter by Status - let date filters handle it
     if date_filter:
-        # If we have a date filter, try without Status filter (might be too restrictive)
         where_clause = f"WHERE {date_filter}"
     else:
-        # No date filter, use Status filter
-        where_clause = "WHERE Status__c != 'Cancelled'"
+        # No date filter - get all non-cancelled programs
+        # Try both Status field variations
+        where_clause = "WHERE (Status__c != 'Cancelled' OR Status_a__c != 'Cancelled' OR Status__c = null OR Status_a__c = null)"
     
     programs_query = f"""
         SELECT Id, Name, 
@@ -181,10 +183,18 @@ try:
         test_result = sf.query(test_query)
         print(f"DEBUG: Test query (no filters) returned {test_result.get('totalSize', 0)} records", file=sys.stderr)
         
-        # Try query without Status filter
-        test_query2 = "SELECT Id, Name, Program_Start_Date__c FROM Program__c LIMIT 5"
+        # Try query without Status filter, with date field
+        test_query2 = "SELECT Id, Name, Program_Start_Date__c, Status__c, Status_a__c FROM Program__c LIMIT 5"
         test_result2 = sf.query(test_query2)
         print(f"DEBUG: Test query 2 (with date field) returned {test_result2.get('totalSize', 0)} records", file=sys.stderr)
+        
+        # Try query with date filter to see if date filter works
+        if date_filter:
+            test_query3 = f"SELECT Id, Name, Program_Start_Date__c FROM Program__c WHERE {date_filter} LIMIT 5"
+            test_result3 = sf.query(test_query3)
+            print(f"DEBUG: Test query 3 (with date filter) returned {test_result3.get('totalSize', 0)} records", file=sys.stderr)
+        else:
+            test_result3 = {"totalSize": 0, "records": []}
         
         # Now try the full query
         programs = sf.query(programs_query)
@@ -199,6 +209,8 @@ try:
                 "testQueryResults": test_result.get('totalSize', 0),
                 "testQuery2Results": test_result2.get('totalSize', 0),
                 "testQuery2Records": test_result2.get('records', [])[:2],  # First 2 records
+                "testQuery3Results": test_result3.get('totalSize', 0),
+                "testQuery3Records": test_result3.get('records', [])[:2],  # First 2 records with date filter
                 "fullQueryResults": programs.get('totalSize', 0),
                 "query": programs_query
             }
