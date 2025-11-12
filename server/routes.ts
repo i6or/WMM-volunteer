@@ -416,13 +416,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const filterByCurrentQuarter = currentQuarter === 'true' || currentQuarter === '1';
       const filterByNext60Days = next60Days === 'true' || next60Days === '1';
       
-      const programs = await salesforceService.programService.getPrograms(filterByCurrentQuarter, filterByNext60Days);
+      console.log(`[API] Querying programs - Current Quarter: ${filterByCurrentQuarter}, Next 60 Days: ${filterByNext60Days}`);
+      
+      const result = await salesforceService.programService.getPrograms(filterByCurrentQuarter, filterByNext60Days);
+      
+      // Handle both array (old format) and object (new format with debug)
+      const programs = Array.isArray(result) ? result : result.records || [];
+      const debug = Array.isArray(result) ? null : (result.debug || null);
+      const stderr = Array.isArray(result) ? null : (result.stderr || null);
+      
       res.json({ 
         success: true,
         programs,
         count: programs.length,
         filteredByCurrentQuarter: filterByCurrentQuarter,
-        filteredByNext60Days: filterByNext60Days
+        filteredByNext60Days: filterByNext60Days,
+        debug: debug,
+        stderr: stderr
       });
     } catch (error) {
       console.error("Failed to query Programs:", error);
@@ -487,12 +497,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`[SYNC] Starting sync with filters - Current Quarter: ${filterByCurrentQuarter}, Next 60 Days: ${filterByNext60Days}`);
       
       // First, query Salesforce to see what we get
-      const sfPrograms = await salesforceService.programService.getPrograms(filterByCurrentQuarter, filterByNext60Days);
+      const result = await salesforceService.programService.getPrograms(filterByCurrentQuarter, filterByNext60Days);
+      const sfPrograms = Array.isArray(result) ? result : (result.records || []);
       console.log(`[SYNC] Salesforce query returned ${sfPrograms.length} programs`);
       
       if (sfPrograms.length === 0) {
         // Try querying without filters to see if we get any programs at all
-        const allPrograms = await salesforceService.programService.getPrograms(false, false);
+        const allResult = await salesforceService.programService.getPrograms(false, false);
+        const allPrograms = Array.isArray(allResult) ? allResult : (allResult.records || []);
         console.log(`[SYNC] Query without filters returned ${allPrograms.length} programs`);
         
         return res.json({ 

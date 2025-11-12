@@ -93,7 +93,7 @@ export class SalesforceProgramService {
    * @param filterByCurrentQuarter - If true, only return programs starting in the current quarter
    * @param filterByNext60Days - If true, only return programs starting in the next 60 days
    */
-  async getPrograms(filterByCurrentQuarter: boolean = false, filterByNext60Days: boolean = false): Promise<SalesforceProgram[]> {
+  async getPrograms(filterByCurrentQuarter: boolean = false, filterByNext60Days: boolean = false): Promise<SalesforceProgram[] | { records: SalesforceProgram[]; debug?: any; stderr?: string }> {
     const config = this.getConfig();
     const scriptContent = `
 import sys
@@ -266,7 +266,7 @@ except Exception as e:
       
       if (result.error) {
         console.error('Salesforce Programs query error:', result.error);
-        return [];
+        return { records: [], debug: null };
       }
 
       if (result.success === false) {
@@ -274,7 +274,7 @@ except Exception as e:
         if (result.available_fields) {
           console.log('Available fields:', result.available_fields);
         }
-        return [];
+        return { records: [], debug: result };
       }
 
       const records = result.records || [];
@@ -283,10 +283,15 @@ except Exception as e:
         console.log('[getPrograms] First record:', JSON.stringify(records[0], null, 2));
       }
       
-      return records;
+      // Return both records and debug info
+      return {
+        records,
+        debug: result.debug || null,
+        stderr: result.stderr || null
+      };
     } catch (error) {
       console.error('Failed to query Programs:', error);
-      return [];
+      return { records: [], debug: null };
     }
   }
 

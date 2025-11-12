@@ -41,16 +41,27 @@ export class SalesforceService {
 
       pythonProcess.stderr.on('data', (data) => {
         stderr += data.toString();
+        // Also log stderr for debugging (debug prints go to stderr)
+        console.log('[Python stderr]', data.toString());
       });
 
       pythonProcess.on('close', (code) => {
         if (code === 0) {
           try {
-            resolve(JSON.parse(stdout));
+            const parsed = JSON.parse(stdout);
+            // Include stderr in response for debugging
+            if (stderr && !parsed.stderr) {
+              parsed.stderr = stderr;
+            }
+            resolve(parsed);
           } catch (error) {
-            resolve(stdout);
+            console.error('[Python] Failed to parse JSON:', stdout);
+            console.error('[Python] stderr:', stderr);
+            resolve({ error: `Failed to parse JSON: ${error}`, stdout, stderr });
           }
         } else {
+          console.error('[Python] Script failed with code', code);
+          console.error('[Python] stderr:', stderr);
           reject(new Error(`Python script failed: ${stderr}`));
         }
       });
