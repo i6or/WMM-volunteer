@@ -31,10 +31,8 @@ export class ProgramSyncService {
         : "TBD",
       ageRange: null, // Not available in Salesforce query
       status: sfProgram.Status__c?.toLowerCase() === "planned" ? "active" : "active",
-      format: sfProgram.Format__c || null,
       startDate: startDate,
       endDate: endDate,
-      type: sfProgram.Type__c || null,
       updatedAt: new Date(),
     };
   }
@@ -56,19 +54,24 @@ export class ProgramSyncService {
       programId: programId,
       title: sfWorkshop.Workshop_Name__c || sfWorkshop.Name || "Unnamed Workshop",
       description: `Workshop: ${sfWorkshop.Name}`,
-      date: dateTime,
+      date: dateTime || new Date(), // Required field - use current date if not available
       startTime: dateTime 
         ? dateTime.toLocaleTimeString('en-US', { 
             hour: '2-digit', 
             minute: '2-digit',
             hour12: true 
           })
-        : null,
-      endTime: null, // Not available in Salesforce query
+        : "9:00 AM", // Required field - provide default
+      endTime: dateTime && sfWorkshop.End_Time__c
+        ? new Date(sfWorkshop.End_Time__c).toLocaleTimeString('en-US', {
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: true
+          })
+        : "5:00 PM", // Required field - provide default
       location: null, // Not available in Salesforce query
       maxParticipants: null,
       currentParticipants: sfWorkshop.Attendee_Count__c || 0,
-      presenter: sfWorkshop.Presenter__c || null,
       updatedAt: new Date(),
     };
   }

@@ -2,6 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { salesforceService } from "./services/salesforce";
+import { ProgramSyncService } from "./services/sync-programs";
 import { insertVolunteerSchema, insertOpportunitySchema, insertVolunteerSignupSchema, insertProgramSchema, insertWorkshopSchema, insertParticipantSchema, insertParticipantWorkshopSchema } from "@shared/schema";
 import { z } from "zod";
 
@@ -472,6 +473,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ 
         success: false, 
         message: `Failed to query Programs with Workshops: ${error}` 
+      });
+    }
+  });
+
+  // Sync Programs and Workshops from Salesforce to Database
+  app.post("/api/salesforce/sync-programs", async (req, res) => {
+    try {
+      const { currentQuarter, next60Days } = req.body;
+      const filterByCurrentQuarter = currentQuarter === true || currentQuarter === 'true' || currentQuarter === '1';
+      const filterByNext60Days = next60Days === true || next60Days === 'true' || next60Days === '1';
+      
+      const syncService = new ProgramSyncService(salesforceService.programService);
+      const result = await syncService.syncAllPrograms(filterByNext60Days, filterByCurrentQuarter);
+      
+      res.json({ 
+        success: true,
+        message: `Synced ${result.programsSynced} programs and ${result.workshopsSynced} workshops to database`,
+        programsSynced: result.programsSynced,
+        workshopsSynced: result.workshopsSynced,
+        programs: result.programs,
+        filteredByCurrentQuarter: filterByCurrentQuarter,
+        filteredByNext60Days: filterByNext60Days
+      });
+    } catch (error) {
+      console.error("Failed to sync Programs:", error);
+      res.status(500).json({ 
+        success: false, 
+        message: `Failed to sync Programs: ${error}` 
       });
     }
   });
