@@ -499,6 +499,21 @@ export default function AdminDashboard() {
                           Programs synced: {syncResult.programsSynced} | Workshops synced: {syncResult.workshopsSynced}
                         </div>
                       )}
+                      {syncResult.debug && (
+                        <div className="mt-3 p-2 bg-gray-100 rounded text-xs space-y-1">
+                          <div><strong>Debug Info:</strong></div>
+                          <div>• Programs from Salesforce (with filters): {syncResult.debug.programsFromSalesforce}</div>
+                          <div>• Programs without filters: {syncResult.debug.programsWithoutFilters}</div>
+                          {syncResult.debug.sampleProgram && (
+                            <div className="mt-2">
+                              <strong>Sample Program:</strong>
+                              <pre className="text-xs bg-white p-1 rounded mt-1 max-h-40 overflow-auto">
+                                {JSON.stringify(syncResult.debug.sampleProgram, null, 2)}
+                              </pre>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
