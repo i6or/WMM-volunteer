@@ -262,6 +262,8 @@ except Exception as e:
 
     try {
       const result = await this.salesforceService['executePythonScript'](scriptContent);
+      console.log('[getPrograms] Raw Salesforce result:', JSON.stringify(result, null, 2));
+      
       if (result.error) {
         console.error('Salesforce Programs query error:', result.error);
         return [];
@@ -275,7 +277,13 @@ except Exception as e:
         return [];
       }
 
-      return result.records || [];
+      const records = result.records || [];
+      console.log(`[getPrograms] Returning ${records.length} records`);
+      if (records.length > 0) {
+        console.log('[getPrograms] First record:', JSON.stringify(records[0], null, 2));
+      }
+      
+      return records;
     } catch (error) {
       console.error('Failed to query Programs:', error);
       return [];
