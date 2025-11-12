@@ -137,10 +137,17 @@ export default function AdminDashboard() {
     setLoading(false);
   };
 
-  const queryPrograms = async () => {
+  const queryPrograms = async (filterType?: 'currentQuarter' | 'next60Days') => {
     setLoading(true);
     try {
-      const response = await fetch('/api/salesforce/programs', {
+      const params = new URLSearchParams();
+      if (filterType === 'currentQuarter') {
+        params.set('currentQuarter', 'true');
+      } else if (filterType === 'next60Days') {
+        params.set('next60Days', 'true');
+      }
+      
+      const response = await fetch(`/api/salesforce/programs?${params.toString()}`, {
         credentials: 'include'
       });
       const result = await response.json();
@@ -154,10 +161,17 @@ export default function AdminDashboard() {
     setLoading(false);
   };
 
-  const queryProgramsWithWorkshops = async () => {
+  const queryProgramsWithWorkshops = async (filterType?: 'currentQuarter' | 'next60Days') => {
     setLoading(true);
     try {
-      const response = await fetch('/api/salesforce/programs-with-workshops', {
+      const params = new URLSearchParams();
+      if (filterType === 'currentQuarter') {
+        params.set('currentQuarter', 'true');
+      } else if (filterType === 'next60Days') {
+        params.set('next60Days', 'true');
+      }
+      
+      const response = await fetch(`/api/salesforce/programs-with-workshops?${params.toString()}`, {
         credentials: 'include'
       });
       const result = await response.json();
@@ -463,23 +477,57 @@ export default function AdminDashboard() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <p className="text-sm text-muted-foreground">
-                  Query all Programs from Salesforce, then fetch Workshops for each Program.
+                  Query Programs from Salesforce. Filter by Current Quarter or Next 60 Days to get real data.
                 </p>
-                <div className="flex gap-2">
-                  <Button 
-                    onClick={queryPrograms} 
-                    disabled={loading || !connectionResult?.success}
-                    className="flex-1"
-                  >
-                    {loading ? "Querying..." : "Query Programs"}
-                  </Button>
-                  <Button 
-                    onClick={queryProgramsWithWorkshops} 
-                    disabled={loading || !connectionResult?.success}
-                    className="flex-1 bg-blue-600 hover:bg-blue-700"
-                  >
-                    {loading ? "Loading..." : "Programs + Workshops"}
-                  </Button>
+                <div className="space-y-2">
+                  <div className="flex gap-2">
+                    <Button 
+                      onClick={() => queryPrograms()} 
+                      disabled={loading || !connectionResult?.success}
+                      variant="outline"
+                      className="flex-1"
+                    >
+                      {loading ? "Querying..." : "All Programs"}
+                    </Button>
+                    <Button 
+                      onClick={() => queryPrograms('currentQuarter')} 
+                      disabled={loading || !connectionResult?.success}
+                      className="flex-1 bg-green-600 hover:bg-green-700"
+                    >
+                      {loading ? "Querying..." : "Current Quarter"}
+                    </Button>
+                    <Button 
+                      onClick={() => queryPrograms('next60Days')} 
+                      disabled={loading || !connectionResult?.success}
+                      className="flex-1 bg-blue-600 hover:bg-blue-700"
+                    >
+                      {loading ? "Querying..." : "Next 60 Days"}
+                    </Button>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button 
+                      onClick={() => queryProgramsWithWorkshops()} 
+                      disabled={loading || !connectionResult?.success}
+                      variant="outline"
+                      className="flex-1"
+                    >
+                      {loading ? "Loading..." : "All + Workshops"}
+                    </Button>
+                    <Button 
+                      onClick={() => queryProgramsWithWorkshops('currentQuarter')} 
+                      disabled={loading || !connectionResult?.success}
+                      className="flex-1 bg-green-600 hover:bg-green-700"
+                    >
+                      {loading ? "Loading..." : "Qtr + Workshops"}
+                    </Button>
+                    <Button 
+                      onClick={() => queryProgramsWithWorkshops('next60Days')} 
+                      disabled={loading || !connectionResult?.success}
+                      className="flex-1 bg-blue-600 hover:bg-blue-700"
+                    >
+                      {loading ? "Loading..." : "60 Days + Workshops"}
+                    </Button>
+                  </div>
                 </div>
                 
                 {programsResult && (
@@ -492,6 +540,8 @@ export default function AdminDashboard() {
                       </Badge>
                       <span className="text-sm font-medium">
                         Found {programsResult.count || 0} Programs
+                        {programsResult.filteredByNext60Days && " (Next 60 Days)"}
+                        {programsResult.filteredByCurrentQuarter && " (Current Quarter)"}
                       </span>
                     </div>
                     {programsResult.success && programsResult.programs && (
@@ -518,6 +568,8 @@ export default function AdminDashboard() {
                       </Badge>
                       <span className="text-sm font-medium">
                         Found {workshopsResult.count || 0} Programs with Workshops
+                        {workshopsResult.filteredByNext60Days && " (Next 60 Days)"}
+                        {workshopsResult.filteredByCurrentQuarter && " (Current Quarter)"}
                       </span>
                     </div>
                     {workshopsResult.success && workshopsResult.data && (

@@ -411,11 +411,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Query Programs from Salesforce
   app.get("/api/salesforce/programs", async (req, res) => {
     try {
-      const programs = await salesforceService.programService.getPrograms();
+      const { currentQuarter, next60Days } = req.query;
+      const filterByCurrentQuarter = currentQuarter === 'true' || currentQuarter === '1';
+      const filterByNext60Days = next60Days === 'true' || next60Days === '1';
+      
+      const programs = await salesforceService.programService.getPrograms(filterByCurrentQuarter, filterByNext60Days);
       res.json({ 
         success: true,
         programs,
-        count: programs.length
+        count: programs.length,
+        filteredByCurrentQuarter: filterByCurrentQuarter,
+        filteredByNext60Days: filterByNext60Days
       });
     } catch (error) {
       console.error("Failed to query Programs:", error);
@@ -449,11 +455,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get all Programs with their Workshops
   app.get("/api/salesforce/programs-with-workshops", async (req, res) => {
     try {
-      const programsWithWorkshops = await salesforceService.programService.getProgramsWithWorkshops();
+      const { currentQuarter, next60Days } = req.query;
+      const filterByCurrentQuarter = currentQuarter === 'true' || currentQuarter === '1';
+      const filterByNext60Days = next60Days === 'true' || next60Days === '1';
+      
+      const programsWithWorkshops = await salesforceService.programService.getProgramsWithWorkshops(filterByCurrentQuarter, filterByNext60Days);
       res.json({ 
         success: true,
         data: programsWithWorkshops,
-        count: programsWithWorkshops.length
+        count: programsWithWorkshops.length,
+        filteredByCurrentQuarter: filterByCurrentQuarter,
+        filteredByNext60Days: filterByNext60Days
       });
     } catch (error) {
       console.error("Failed to query Programs with Workshops:", error);

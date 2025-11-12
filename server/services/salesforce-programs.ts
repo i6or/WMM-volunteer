@@ -50,9 +50,50 @@ export class SalesforceProgramService {
   }
 
   /**
-   * Query all Programs from Salesforce
+   * Get current quarter start and end dates
    */
-  async getPrograms(): Promise<SalesforceProgram[]> {
+  private getCurrentQuarterDates(): { start: string; end: string } {
+    const now = new Date();
+    const currentMonth = now.getMonth(); // 0-11
+    const currentYear = now.getFullYear();
+    
+    // Determine quarter
+    let quarterStartMonth: number;
+    let quarterEndMonth: number;
+    
+    if (currentMonth >= 0 && currentMonth <= 2) {
+      // Q1: Jan-Mar
+      quarterStartMonth = 0;
+      quarterEndMonth = 2;
+    } else if (currentMonth >= 3 && currentMonth <= 5) {
+      // Q2: Apr-Jun
+      quarterStartMonth = 3;
+      quarterEndMonth = 5;
+    } else if (currentMonth >= 6 && currentMonth <= 8) {
+      // Q3: Jul-Sep
+      quarterStartMonth = 6;
+      quarterEndMonth = 8;
+    } else {
+      // Q4: Oct-Dec
+      quarterStartMonth = 9;
+      quarterEndMonth = 11;
+    }
+    
+    const quarterStart = new Date(currentYear, quarterStartMonth, 1);
+    const quarterEnd = new Date(currentYear, quarterEndMonth + 1, 0, 23, 59, 59); // Last day of quarter
+    
+    return {
+      start: quarterStart.toISOString().split('T')[0] + 'T00:00:00Z',
+      end: quarterEnd.toISOString().split('T')[0] + 'T23:59:59Z',
+    };
+  }
+
+  /**
+   * Query all Programs from Salesforce
+   * @param filterByCurrentQuarter - If true, only return programs starting in the current quarter
+   * @param filterByNext60Days - If true, only return programs starting in the next 60 days
+   */
+  async getPrograms(filterByCurrentQuarter: boolean = false, filterByNext60Days: boolean = false): Promise<SalesforceProgram[]> {
     const config = this.getConfig();
     const scriptContent = `
 import sys
@@ -92,7 +133,52 @@ try:
     
     # Query Programs
     # Adjust field names based on your actual Salesforce schema
-    programs_query = """
+    filter_by_quarter = ${filterByCurrentQuarter}
+    filter_by_next_60_days = ${filterByNext60Days}
+    
+    from datetime import datetime, timedelta
+    now = datetime.now()
+    
+    if filter_by_next_60_days:
+        # Filter by next 60 days
+        start_date = now
+        end_date = now + timedelta(days=60)
+        end_date = datetime.combine(end_date.date(), datetime.max.time())
+        
+        start_date_str = start_date.strftime('%Y-%m-%dT%H:%M:%S.000Z')
+        end_date_str = end_date.strftime('%Y-%m-%dT%H:%M:%S.000Z')
+        
+        date_filter = f"AND Program_Start_Date__c >= {start_date_str} AND Program_Start_Date__c <= {end_date_str}"
+    elif filter_by_quarter:
+        # Filter by current quarter
+        current_month = now.month
+        
+        # Determine quarter
+        if current_month in [1, 2, 3]:
+            quarter_start_month = 1
+            quarter_end_month = 3
+        elif current_month in [4, 5, 6]:
+            quarter_start_month = 4
+            quarter_end_month = 6
+        elif current_month in [7, 8, 9]:
+            quarter_start_month = 7
+            quarter_end_month = 9
+        else:
+            quarter_start_month = 10
+            quarter_end_month = 12
+        
+        quarter_start = datetime(now.year, quarter_start_month, 1)
+        quarter_end = datetime(now.year, quarter_end_month + 1, 1) - timedelta(days=1)
+        quarter_end = datetime.combine(quarter_end.date(), datetime.max.time())
+        
+        quarter_start_str = quarter_start.strftime('%Y-%m-%dT%H:%M:%S.000Z')
+        quarter_end_str = quarter_end.strftime('%Y-%m-%dT%H:%M:%S.000Z')
+        
+        date_filter = f"AND Program_Start_Date__c >= {quarter_start_str} AND Program_Start_Date__c <= {quarter_end_str}"
+    else:
+        date_filter = ""
+    
+    programs_query = f"""
         SELECT Id, Name, 
                Program_Start_Date__c, Program_End_Date__c,
                Status__c, Format__c,
@@ -103,7 +189,8 @@ try:
                Workshop_Start_Date_Time__c
         FROM Program__c
         WHERE Status__c != 'Cancelled'
-        ORDER BY Program_Start_Date__c DESC
+        {date_filter}
+        ORDER BY Program_Start_Date__c ASC
         LIMIT 100
     """
     
@@ -266,9 +353,11 @@ except Exception as e:
 
   /**
    * Get all Programs with their Workshops
+   * @param filterByCurrentQuarter - If true, only return programs starting in the current quarter
+   * @param filterByNext60Days - If true, only return programs starting in the next 60 days
    */
-  async getProgramsWithWorkshops(): Promise<Array<{ program: SalesforceProgram; workshops: SalesforceWorkshop[] }>> {
-    const programs = await this.getPrograms();
+  async getProgramsWithWorkshops(filterByCurrentQuarter: boolean = false, filterByNext60Days: boolean = false): Promise<Array<{ program: SalesforceProgram; workshops: SalesforceWorkshop[] }>> {
+    const programs = await this.getPrograms(filterByCurrentQuarter, filterByNext60Days);
     
     const programsWithWorkshops = await Promise.all(
       programs.map(async (program) => {
