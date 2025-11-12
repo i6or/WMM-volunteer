@@ -236,6 +236,76 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Bulk signup for all opportunities in a program (for program-level roles)
+  app.post("/api/signups/bulk-program", async (req, res) => {
+    try {
+      const { volunteerId, programId, category } = req.body;
+      
+      if (!volunteerId || !programId || !category) {
+        return res.status(400).json({ message: "volunteerId, programId, and category are required" });
+      }
+
+      // Check if volunteer exists
+      const volunteer = await storage.getVolunteer(volunteerId);
+      if (!volunteer) {
+        return res.status(404).json({ message: "Volunteer not found" });
+      }
+
+      // Get all opportunities for this program and category
+      const allOpportunities = await storage.getAllOpportunities({ programId });
+      const programOpportunities = allOpportunities.filter(opp => 
+        opp.category === category && 
+        (opp.filledSpots || 0) < opp.totalSpots
+      );
+
+      if (programOpportunities.length === 0) {
+        return res.status(400).json({ message: "No available opportunities found for this program and category" });
+      }
+
+      // Check if volunteer is already signed up for any of these opportunities
+      const existingSignups = await storage.getVolunteerSignups(volunteerId);
+      const existingOpportunityIds = new Set(existingSignups.map((s: any) => s.opportunityId));
+      
+      const opportunitiesToSignUp = programOpportunities.filter(
+        opp => !existingOpportunityIds.has(opp.id)
+      );
+
+      if (opportunitiesToSignUp.length === 0) {
+        return res.status(400).json({ message: "Already signed up for all opportunities in this program" });
+      }
+
+      // Sign up for all opportunities
+      const signups = [];
+      for (const opportunity of opportunitiesToSignUp) {
+        try {
+          const signup = await storage.signupVolunteer({
+            volunteerId,
+            opportunityId: opportunity.id,
+            status: "confirmed",
+          });
+          signups.push(signup);
+        } catch (error) {
+          console.error(`Failed to sign up for opportunity ${opportunity.id}:`, error);
+        }
+      }
+
+      res.status(201).json({
+        success: true,
+        message: `Successfully signed up for ${signups.length} opportunities`,
+        signups,
+        count: signups.length,
+      });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ 
+          message: "Validation failed", 
+          errors: error.errors 
+        });
+      }
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   app.get("/api/signups", async (req, res) => {
     const { volunteerId, opportunityId } = req.query;
     const signups = await storage.getVolunteerSignups(

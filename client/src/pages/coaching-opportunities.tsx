@@ -59,6 +59,30 @@ export default function CoachingOpportunities() {
     },
   });
 
+  // Check if an opportunity type is program-level (signs up for all workshops)
+  const isProgramLevelRole = (category: string) => {
+    const programLevelCategories = [
+      "Financial Coaching",
+      "Program Tech",
+      "Program Support",
+      "Administrative Support"
+    ];
+    return programLevelCategories.some(plc => category.includes(plc) || plc.includes(category));
+  };
+
+  // Check if signed up for ALL opportunities of a type in a program
+  const isSignedUpForAllInProgram = (programId: string, category: string, opportunities: Opportunity[]) => {
+    if (!mySignups || opportunities.length === 0) return false;
+    const programOppIds = new Set(opportunities.map(opp => opp.id));
+    const signedUpOppIds = new Set(
+      mySignups
+        .filter((signup: any) => programOppIds.has(signup.opportunityId))
+        .map((signup: any) => signup.opportunityId)
+    );
+    return programOppIds.size > 0 && signedUpOppIds.size === programOppIds.size;
+  };
+
+  // Single opportunity signup mutation
   const signupMutation = useMutation({
     mutationFn: async (opportunityId: string) => {
       const response = await apiRequest("POST", "/api/signups", {
@@ -74,6 +98,33 @@ export default function CoachingOpportunities() {
       toast({
         title: "Success!",
         description: "You've successfully signed up for this opportunity.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to sign up. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Bulk program signup mutation (for program-level roles)
+  const bulkSignupMutation = useMutation({
+    mutationFn: async ({ programId, category }: { programId: string; category: string }) => {
+      const response = await apiRequest("POST", "/api/signups/bulk-program", {
+        volunteerId: "temp-id", // TODO: Get from auth
+        programId,
+        category,
+      });
+      return response.json();
+    },
+    onSuccess: (data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/opportunities"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/signups"] });
+      toast({
+        title: "Success!",
+        description: `You've successfully signed up for all ${data.count} ${variables.category} opportunities in this program.`,
       });
     },
     onError: (error: any) => {
@@ -240,7 +291,19 @@ export default function CoachingOpportunities() {
                         const filledSpots = getFilledSpots(typeOpps);
                         const availableSpots = getAvailableSpots(typeOpps);
                         const isTypeFull = availableSpots === 0;
+                        const isProgramLevel = isProgramLevelRole(type);
+                        const isSignedUpForAll = isSignedUpForAllInProgram(program.id, type, typeOpps);
                         const hasAnySignedUp = typeOpps.some(opp => isSignedUp(opp.id));
+
+                        // For program-level roles, calculate spots differently
+                        // Each volunteer takes ONE spot across ALL workshops
+                        const programLevelSpots = isProgramLevel 
+                          ? typeOpps[0]?.totalSpots || 0  // Use the first opportunity's total spots
+                          : totalSpots;
+                        const programLevelFilled = isProgramLevel
+                          ? typeOpps[0]?.filledSpots || 0  // Use the first opportunity's filled spots
+                          : filledSpots;
+                        const programLevelAvailable = programLevelSpots - programLevelFilled;
 
                         return (
                           <AccordionItem key={type} value={type} className="border-b">
@@ -250,43 +313,63 @@ export default function CoachingOpportunities() {
                                   <div className="text-left">
                                     <div className="font-semibold text-gray-900">{type}</div>
                                     <div className="text-sm text-gray-600 mt-1">
-                                      {typeOpps.length} {typeOpps.length === 1 ? 'opportunity' : 'opportunities'}
+                                      {isProgramLevel 
+                                        ? `All ${typeOpps.length} workshops in program`
+                                        : `${typeOpps.length} ${typeOpps.length === 1 ? 'workshop' : 'workshops'}`
+                                      }
                                     </div>
                                   </div>
                                 </div>
                                 <div className="flex items-center gap-4">
                                   <div className="text-right">
                                     <div className="text-sm font-medium text-gray-900">
-                                      {filledSpots} / {totalSpots} spots filled
+                                      {isProgramLevel 
+                                        ? `${programLevelFilled} / ${programLevelSpots} ${type} spots filled`
+                                        : `${filledSpots} / ${totalSpots} spots filled`
+                                      }
                                     </div>
                                     <div className="text-xs text-gray-500">
-                                      {availableSpots} available
+                                      {isProgramLevel 
+                                        ? `${programLevelAvailable} ${type} available`
+                                        : `${availableSpots} available`
+                                      }
                                     </div>
                                   </div>
-                                  {hasAnySignedUp && (
+                                  {isSignedUpForAll && (
                                     <Badge className="bg-green-100 text-green-800 border-green-300">
                                       <CheckCircle2 className="h-3 w-3 mr-1" />
                                       Signed Up
                                     </Badge>
                                   )}
-                                  {!hasAnySignedUp && !isTypeFull && (
+                                  {!isSignedUpForAll && (isProgramLevel ? programLevelAvailable > 0 : !isTypeFull) && (
                                     <Button
                                       size="sm"
                                       className="bg-green-600 hover:bg-green-700 text-white"
                                       onClick={(e) => {
                                         e.stopPropagation();
-                                        // Sign up for the first available opportunity
-                                        const firstAvailable = typeOpps.find(opp => !isFull(opp) && !isSignedUp(opp.id));
-                                        if (firstAvailable) {
-                                          signupMutation.mutate(firstAvailable.id);
+                                        if (isProgramLevel) {
+                                          // Sign up for ALL opportunities in the program
+                                          bulkSignupMutation.mutate({
+                                            programId: program.id,
+                                            category: type,
+                                          });
+                                        } else {
+                                          // Sign up for individual workshop
+                                          const firstAvailable = typeOpps.find(opp => !isFull(opp) && !isSignedUp(opp.id));
+                                          if (firstAvailable) {
+                                            signupMutation.mutate(firstAvailable.id);
+                                          }
                                         }
                                       }}
-                                      disabled={signupMutation.isPending}
+                                      disabled={signupMutation.isPending || bulkSignupMutation.isPending}
                                     >
-                                      Sign Up
+                                      {signupMutation.isPending || bulkSignupMutation.isPending 
+                                        ? "Signing up..." 
+                                        : "Sign Up"
+                                      }
                                     </Button>
                                   )}
-                                  {isTypeFull && !hasAnySignedUp && (
+                                  {(isProgramLevel ? programLevelAvailable === 0 : isTypeFull) && !isSignedUpForAll && (
                                     <Badge variant="outline" className="border-gray-300 text-gray-500">
                                       Full
                                     </Badge>
@@ -296,6 +379,13 @@ export default function CoachingOpportunities() {
                             </AccordionTrigger>
                             <AccordionContent className="px-6 pb-4">
                               <div className="space-y-3 pt-2">
+                                {isProgramLevel && (
+                                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-3">
+                                    <p className="text-sm text-blue-800">
+                                      <strong>Note:</strong> Signing up as {type} means you'll be committed to all {typeOpps.length} workshops in this program.
+                                    </p>
+                                  </div>
+                                )}
                                 {typeOpps.map((opp) => {
                                   const oppDate = new Date(opp.date);
                                   const isOppFull = isFull(opp);
@@ -332,32 +422,47 @@ export default function CoachingOpportunities() {
                                           </div>
                                         </div>
                                         <div className="ml-4 flex flex-col items-end gap-2">
-                                          <div className="text-sm text-gray-600 text-right">
-                                            <div className="font-medium">
-                                              {opp.filledSpots || 0} / {opp.totalSpots} filled
+                                          {!isProgramLevel && (
+                                            <>
+                                              <div className="text-sm text-gray-600 text-right">
+                                                <div className="font-medium">
+                                                  {opp.filledSpots || 0} / {opp.totalSpots} filled
+                                                </div>
+                                                <div className="text-xs">
+                                                  {opp.totalSpots - (opp.filledSpots || 0)} available
+                                                </div>
+                                              </div>
+                                              {isOppSignedUp ? (
+                                                <Badge className="bg-green-100 text-green-800 border-green-300">
+                                                  <CheckCircle2 className="h-3 w-3 mr-1" />
+                                                  Signed Up
+                                                </Badge>
+                                              ) : isOppFull ? (
+                                                <Badge variant="outline" className="border-gray-300 text-gray-500">
+                                                  Full
+                                                </Badge>
+                                              ) : (
+                                                <Button
+                                                  size="sm"
+                                                  onClick={() => signupMutation.mutate(opp.id)}
+                                                  disabled={signupMutation.isPending}
+                                                  className="bg-green-600 hover:bg-green-700 text-white"
+                                                >
+                                                  {signupMutation.isPending ? "Signing up..." : "Sign Up"}
+                                                </Button>
+                                              )}
+                                            </>
+                                          )}
+                                          {isProgramLevel && (
+                                            <div className="text-xs text-gray-500 text-right">
+                                              {isOppSignedUp ? (
+                                                <Badge className="bg-green-100 text-green-800 border-green-300">
+                                                  Included
+                                                </Badge>
+                                              ) : (
+                                                <span className="text-gray-400">Part of program signup</span>
+                                              )}
                                             </div>
-                                            <div className="text-xs">
-                                              {opp.totalSpots - (opp.filledSpots || 0)} available
-                                            </div>
-                                          </div>
-                                          {isOppSignedUp ? (
-                                            <Badge className="bg-green-100 text-green-800 border-green-300">
-                                              <CheckCircle2 className="h-3 w-3 mr-1" />
-                                              Signed Up
-                                            </Badge>
-                                          ) : isOppFull ? (
-                                            <Badge variant="outline" className="border-gray-300 text-gray-500">
-                                              Full
-                                            </Badge>
-                                          ) : (
-                                            <Button
-                                              size="sm"
-                                              onClick={() => signupMutation.mutate(opp.id)}
-                                              disabled={signupMutation.isPending}
-                                              className="bg-green-600 hover:bg-green-700 text-white"
-                                            >
-                                              {signupMutation.isPending ? "Signing up..." : "Sign Up"}
-                                            </Button>
                                           )}
                                         </div>
                                       </div>
