@@ -484,8 +484,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const filterByCurrentQuarter = currentQuarter === true || currentQuarter === 'true' || currentQuarter === '1';
       const filterByNext60Days = next60Days === true || next60Days === 'true' || next60Days === '1';
       
+      console.log(`[SYNC] Starting sync with filters - Current Quarter: ${filterByCurrentQuarter}, Next 60 Days: ${filterByNext60Days}`);
+      
+      // First, query Salesforce to see what we get
+      const sfPrograms = await salesforceService.programService.getPrograms(filterByCurrentQuarter, filterByNext60Days);
+      console.log(`[SYNC] Salesforce query returned ${sfPrograms.length} programs`);
+      
+      if (sfPrograms.length === 0) {
+        // Try querying without filters to see if we get any programs at all
+        const allPrograms = await salesforceService.programService.getPrograms(false, false);
+        console.log(`[SYNC] Query without filters returned ${allPrograms.length} programs`);
+        
+        return res.json({ 
+          success: true,
+          message: `Synced 0 programs and 0 workshops to database. Salesforce query returned 0 programs with filters (Current Quarter: ${filterByCurrentQuarter}, Next 60 Days: ${filterByNext60Days}). Query without filters returned ${allPrograms.length} programs.`,
+          programsSynced: 0,
+          workshopsSynced: 0,
+          programs: [],
+          filteredByCurrentQuarter: filterByCurrentQuarter,
+          filteredByNext60Days: filterByNext60Days,
+          debug: {
+            programsFromSalesforce: sfPrograms.length,
+            programsWithoutFilters: allPrograms.length,
+            sampleProgram: allPrograms.length > 0 ? allPrograms[0] : null
+          }
+        });
+      }
+      
       const syncService = new ProgramSyncService(salesforceService.programService);
       const result = await syncService.syncAllPrograms(filterByNext60Days, filterByCurrentQuarter);
+      
+      console.log(`[SYNC] Sync completed - ${result.programsSynced} programs, ${result.workshopsSynced} workshops`);
       
       res.json({ 
         success: true,
