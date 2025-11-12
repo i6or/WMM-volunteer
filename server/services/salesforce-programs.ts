@@ -141,41 +141,13 @@ try:
     now = datetime.now()
     
     if filter_by_next_60_days:
-        # Filter by next 60 days
-        start_date = now
-        end_date = now + timedelta(days=60)
-        end_date = datetime.combine(end_date.date(), datetime.max.time())
-        
-        start_date_str = start_date.strftime('%Y-%m-%dT%H:%M:%S.000Z')
-        end_date_str = end_date.strftime('%Y-%m-%dT%H:%M:%S.000Z')
-        
-        date_filter = f"AND Program_Start_Date__c >= {start_date_str} AND Program_Start_Date__c <= {end_date_str}"
+        # Use Salesforce date literals for better compatibility
+        # NEXT_N_DAYS:60 means next 60 days from today
+        date_filter = "AND Program_Start_Date__c = NEXT_N_DAYS:60"
     elif filter_by_quarter:
-        # Filter by current quarter
-        current_month = now.month
-        
-        # Determine quarter
-        if current_month in [1, 2, 3]:
-            quarter_start_month = 1
-            quarter_end_month = 3
-        elif current_month in [4, 5, 6]:
-            quarter_start_month = 4
-            quarter_end_month = 6
-        elif current_month in [7, 8, 9]:
-            quarter_start_month = 7
-            quarter_end_month = 9
-        else:
-            quarter_start_month = 10
-            quarter_end_month = 12
-        
-        quarter_start = datetime(now.year, quarter_start_month, 1)
-        quarter_end = datetime(now.year, quarter_end_month + 1, 1) - timedelta(days=1)
-        quarter_end = datetime.combine(quarter_end.date(), datetime.max.time())
-        
-        quarter_start_str = quarter_start.strftime('%Y-%m-%dT%H:%M:%S.000Z')
-        quarter_end_str = quarter_end.strftime('%Y-%m-%dT%H:%M:%S.000Z')
-        
-        date_filter = f"AND Program_Start_Date__c >= {quarter_start_str} AND Program_Start_Date__c <= {quarter_end_str}"
+        # Use Salesforce date literals for current quarter
+        # THIS_QUARTER covers the current quarter
+        date_filter = "AND Program_Start_Date__c = THIS_QUARTER"
     else:
         date_filter = ""
     
