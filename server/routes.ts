@@ -497,8 +497,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`[SYNC] Starting sync with filters - Current Quarter: ${filterByCurrentQuarter}, Next 60 Days: ${filterByNext60Days}`);
       
       // First, query Salesforce to see what we get
-      const result = await salesforceService.programService.getPrograms(filterByCurrentQuarter, filterByNext60Days);
-      const sfPrograms = Array.isArray(result) ? result : (result.records || []);
+      const queryResult = await salesforceService.programService.getPrograms(filterByCurrentQuarter, filterByNext60Days);
+      const sfPrograms = Array.isArray(queryResult) ? queryResult : (queryResult.records || []);
       console.log(`[SYNC] Salesforce query returned ${sfPrograms.length} programs`);
       
       if (sfPrograms.length === 0) {
@@ -524,16 +524,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const syncService = new ProgramSyncService(salesforceService.programService);
-      const result = await syncService.syncAllPrograms(filterByNext60Days, filterByCurrentQuarter);
+      const syncResult = await syncService.syncAllPrograms(filterByNext60Days, filterByCurrentQuarter);
       
-      console.log(`[SYNC] Sync completed - ${result.programsSynced} programs, ${result.workshopsSynced} workshops`);
+      console.log(`[SYNC] Sync completed - ${syncResult.programsSynced} programs, ${syncResult.workshopsSynced} workshops`);
       
       res.json({ 
         success: true,
-        message: `Synced ${result.programsSynced} programs and ${result.workshopsSynced} workshops to database`,
-        programsSynced: result.programsSynced,
-        workshopsSynced: result.workshopsSynced,
-        programs: result.programs,
+        message: `Synced ${syncResult.programsSynced} programs and ${syncResult.workshopsSynced} workshops to database`,
+        programsSynced: syncResult.programsSynced,
+        workshopsSynced: syncResult.workshopsSynced,
+        programs: syncResult.programs,
         filteredByCurrentQuarter: filterByCurrentQuarter,
         filteredByNext60Days: filterByNext60Days
       });
