@@ -143,13 +143,22 @@ try:
     if filter_by_next_60_days:
         # Use Salesforce date literals for better compatibility
         # NEXT_N_DAYS:60 means next 60 days from today
-        date_filter = "AND Program_Start_Date__c = NEXT_N_DAYS:60"
+        # Try >= TODAY to include today's programs
+        date_filter = "Program_Start_Date__c >= TODAY AND Program_Start_Date__c <= NEXT_N_DAYS:60"
     elif filter_by_quarter:
         # Use Salesforce date literals for current quarter
         # THIS_QUARTER covers the current quarter
-        date_filter = "AND Program_Start_Date__c = THIS_QUARTER"
+        date_filter = "Program_Start_Date__c = THIS_QUARTER"
     else:
         date_filter = ""
+    
+    # Build the WHERE clause - try without Status filter first if date filter is used
+    if date_filter:
+        # If we have a date filter, try without Status filter (might be too restrictive)
+        where_clause = f"WHERE {date_filter.replace('AND ', '')}"
+    else:
+        # No date filter, use Status filter
+        where_clause = "WHERE Status__c != 'Cancelled'"
     
     programs_query = f"""
         SELECT Id, Name, 
@@ -161,8 +170,7 @@ try:
                Total_Participants__c, Number_of_Workshops__c,
                Workshop_Start_Date_Time__c
         FROM Program__c
-        WHERE Status__c != 'Cancelled'
-        {date_filter}
+        {where_clause}
         ORDER BY Program_Start_Date__c ASC
         LIMIT 100
     """
