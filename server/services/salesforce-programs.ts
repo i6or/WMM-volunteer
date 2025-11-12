@@ -155,7 +155,7 @@ try:
     # Build the WHERE clause - try without Status filter first if date filter is used
     if date_filter:
         # If we have a date filter, try without Status filter (might be too restrictive)
-        where_clause = f"WHERE {date_filter.replace('AND ', '')}"
+        where_clause = f"WHERE {date_filter}"
     else:
         # No date filter, use Status filter
         where_clause = "WHERE Status__c != 'Cancelled'"
