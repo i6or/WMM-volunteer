@@ -104,6 +104,7 @@ try:
     from simple_salesforce import Salesforce
     import json
     from datetime import datetime
+    import traceback
     
     # Get Salesforce config from environment
     domain = '${config.domain}'
@@ -195,28 +196,48 @@ try:
     """
     
     try:
+        # First, try a simple query to see if we can access Program__c at all
+        test_query = "SELECT Id, Name FROM Program__c LIMIT 1"
+        test_result = sf.query(test_query)
+        print(f"DEBUG: Test query returned {test_result.get('totalSize', 0)} records", file=sys.stderr)
+        
+        # Now try the full query
         programs = sf.query(programs_query)
+        print(f"DEBUG: Full query returned {programs.get('totalSize', 0)} records", file=sys.stderr)
+        print(f"DEBUG: Query used: {programs_query}", file=sys.stderr)
+        
         print(json.dumps({
             "success": True,
             "records": programs.get('records', []),
-            "totalSize": programs.get('totalSize', 0)
+            "totalSize": programs.get('totalSize', 0),
+            "debug": {
+                "testQueryResults": test_result.get('totalSize', 0),
+                "fullQueryResults": programs.get('totalSize', 0),
+                "query": programs_query
+            }
         }))
     except Exception as e:
         # Try alternative field names if the above fails
-        print(f"Error with standard query: {e}")
+        print(f"Error with standard query: {e}", file=sys.stderr)
         # Fallback: try to describe the object to see available fields
         try:
             program_desc = sf.Program__c.describe()
             available_fields = [f['name'] for f in program_desc['fields']]
+            # Also try a simple query without date filters
+            simple_query = "SELECT Id, Name FROM Program__c WHERE Status__c != 'Cancelled' LIMIT 5"
+            simple_result = sf.query(simple_query)
             print(json.dumps({
                 "success": False,
                 "error": f"Query failed: {str(e)}",
-                "available_fields": available_fields[:20]  # First 20 fields
+                "available_fields": available_fields[:30],  # First 30 fields
+                "simpleQueryResults": simple_result.get('totalSize', 0),
+                "simpleQueryRecords": simple_result.get('records', [])[:2]  # First 2 records
             }))
-        except:
+        except Exception as desc_error:
             print(json.dumps({
                 "success": False,
-                "error": f"Query failed: {str(e)}"
+                "error": f"Query failed: {str(e)}",
+                "describeError": str(desc_error)
             }))
     
 except ImportError:

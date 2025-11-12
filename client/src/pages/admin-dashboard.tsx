@@ -545,15 +545,51 @@ export default function AdminDashboard() {
                       </span>
                     </div>
                     {programsResult.success && programsResult.programs && (
-                      <div className="mt-2 max-h-60 overflow-y-auto">
-                        <pre className="text-xs bg-white p-2 rounded border">
-                          {JSON.stringify(programsResult.programs.slice(0, 3), null, 2)}
-                          {programsResult.programs.length > 3 && `\n... and ${programsResult.programs.length - 3} more`}
-                        </pre>
+                      <div className="mt-2 space-y-2">
+                        {programsResult.debug && (
+                          <div className="text-xs text-gray-500 bg-gray-100 p-2 rounded">
+                            <strong>Debug:</strong> Test query: {programsResult.debug.testQueryResults} records, 
+                            Full query: {programsResult.debug.fullQueryResults} records
+                          </div>
+                        )}
+                        {programsResult.programs.length > 0 ? (
+                          <div className="max-h-60 overflow-y-auto">
+                            <pre className="text-xs bg-white p-2 rounded border">
+                              {JSON.stringify(programsResult.programs.slice(0, 3), null, 2)}
+                              {programsResult.programs.length > 3 && `\n... and ${programsResult.programs.length - 3} more`}
+                            </pre>
+                          </div>
+                        ) : (
+                          <div className="text-sm text-yellow-700 bg-yellow-50 p-2 rounded">
+                            Query succeeded but returned 0 programs. Check debug info above or try without filters.
+                            {programsResult.debug && (
+                              <div className="mt-2 text-xs">
+                                Query used: {programsResult.debug.query.substring(0, 200)}...
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                     )}
                     {!programsResult.success && (
-                      <p className="text-sm text-red-700">{programsResult.message}</p>
+                      <div className="mt-2 space-y-2">
+                        <p className="text-sm text-red-700">{programsResult.message || programsResult.error}</p>
+                        {programsResult.available_fields && (
+                          <div className="text-xs bg-gray-100 p-2 rounded">
+                            <strong>Available fields:</strong> {programsResult.available_fields.join(', ')}
+                          </div>
+                        )}
+                        {programsResult.simpleQueryResults !== undefined && (
+                          <div className="text-xs text-blue-700">
+                            Simple query (no date filters) returned {programsResult.simpleQueryResults} records
+                            {programsResult.simpleQueryRecords && programsResult.simpleQueryRecords.length > 0 && (
+                              <pre className="mt-1 bg-white p-1 rounded text-xs">
+                                {JSON.stringify(programsResult.simpleQueryRecords, null, 2)}
+                              </pre>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     )}
                   </div>
                 )}
