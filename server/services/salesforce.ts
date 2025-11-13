@@ -14,11 +14,35 @@ export class SalesforceService {
   public programService: SalesforceProgramService;
 
   constructor() {
+    // Normalize domain - remove protocol and trailing slashes
+    let domain = process.env.SALESFORCE_DOMAIN || 'login';
+    if (domain.includes('://')) {
+      // Extract domain from URL (e.g., https://wmm.lightning.force.com -> wmm.lightning.force.com)
+      try {
+        const url = new URL(domain.startsWith('http') ? domain : `https://${domain}`);
+        domain = url.hostname;
+      } catch (e) {
+        // If URL parsing fails, try simple string replacement
+        domain = domain.replace(/^https?:\/\//, '').replace(/\/$/, '');
+      }
+    }
+    // For custom domains, simple_salesforce expects just the hostname
+    // For standard domains, use 'login' or 'test'
+    if (domain.includes('lightning.force.com') || domain.includes('my.salesforce.com')) {
+      // Extract the subdomain (e.g., 'wmm' from 'wmm.lightning.force.com')
+      const parts = domain.split('.');
+      if (parts.length >= 3 && parts[0] !== 'login' && parts[0] !== 'test') {
+        domain = parts[0]; // Use subdomain as domain for custom instances
+      } else {
+        domain = 'login'; // Fallback to login
+      }
+    }
+    
     this.config = {
       username: process.env.SALESFORCE_USERNAME || '',
       password: process.env.SALESFORCE_PASSWORD || '',
       securityToken: process.env.SALESFORCE_SECURITY_TOKEN || '',
-      domain: process.env.SALESFORCE_DOMAIN || 'login',
+      domain: domain,
     };
     this.programService = new SalesforceProgramService(this);
   }

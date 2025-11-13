@@ -423,13 +423,27 @@ try:
     from simple_salesforce import Salesforce
     import json
     
+    # Domain should be 'login', 'test', or custom domain subdomain (e.g., 'wmm')
     domain = '${config.domain}'
-    sf = Salesforce(
-        username='${config.username}',
-        password='${config.password}',
-        security_token='${config.securityToken}',
-        domain=domain
-    )
+    
+    # For custom domains, we need to use instance_url instead
+    if domain not in ['login', 'test'] and '.' not in domain:
+        # Custom domain - use instance_url parameter
+        instance_url = f"https://{domain}.my.salesforce.com"
+        sf = Salesforce(
+            username='${config.username}',
+            password='${config.password}',
+            security_token='${config.securityToken}',
+            instance_url=instance_url
+        )
+    else:
+        # Standard domain
+        sf = Salesforce(
+            username='${config.username}',
+            password='${config.password}',
+            security_token='${config.securityToken}',
+            domain=domain
+        )
     
     # Try to query the specific program
     try:
