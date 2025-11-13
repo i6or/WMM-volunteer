@@ -402,7 +402,13 @@ except Exception as e:
    * @param filterByNext60Days - If true, only return programs starting in the next 60 days
    */
   async getProgramsWithWorkshops(filterByCurrentQuarter: boolean = false, filterByNext60Days: boolean = false): Promise<Array<{ program: SalesforceProgram; workshops: SalesforceWorkshop[] }>> {
-    const programs = await this.getPrograms(filterByCurrentQuarter, filterByNext60Days);
+    const result = await this.getPrograms(filterByCurrentQuarter, filterByNext60Days);
+    // Handle both array (old format) and object (new format with debug)
+    const programs = Array.isArray(result) ? result : (result.records || []);
+    
+    if (programs.length === 0) {
+      return [];
+    }
     
     const programsWithWorkshops = await Promise.all(
       programs.map(async (program) => {

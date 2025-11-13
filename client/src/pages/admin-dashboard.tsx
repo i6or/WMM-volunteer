@@ -570,12 +570,20 @@ export default function AdminDashboard() {
                         {programsResult.debug && (
                           <div className="text-xs text-gray-500 bg-gray-100 p-2 rounded space-y-1">
                             <div><strong>Debug Info:</strong></div>
-                            <div>• Test query (no filters): {programsResult.debug.testQueryResults} records</div>
-                            <div>• Test query 2 (with date field): {programsResult.debug.testQuery2Results} records</div>
+                            <div>• Test query (no filters): {programsResult.debug.testQueryResults ?? 'N/A'} records</div>
+                            <div>• Test query 2 (with date field): {programsResult.debug.testQuery2Results ?? 'N/A'} records</div>
                             {programsResult.debug.testQuery3Results !== undefined && (
                               <div>• Test query 3 (date filter only): {programsResult.debug.testQuery3Results} records</div>
                             )}
-                            <div>• Full query (all filters): {programsResult.debug.fullQueryResults} records</div>
+                            <div>• Full query (all filters): {programsResult.debug.fullQueryResults ?? 'N/A'} records</div>
+                            {programsResult.debug.query && (
+                              <div className="mt-2">
+                                <strong>Query used:</strong>
+                                <pre className="text-xs bg-white p-1 rounded mt-1 max-h-20 overflow-auto">
+                                  {programsResult.debug.query}
+                                </pre>
+                              </div>
+                            )}
                             {programsResult.debug.testQuery2Records && programsResult.debug.testQuery2Records.length > 0 && (
                               <div className="mt-2">
                                 <strong>Sample records (no filters):</strong>
