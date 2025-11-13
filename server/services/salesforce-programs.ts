@@ -116,15 +116,18 @@ try:
         print(json.dumps({"error": "Salesforce credentials not configured"}))
         exit(1)
     
-    # Handle custom lightning domain
-    if 'lightning.force.com' in domain:
+    # For custom domains, we need to use instance_url instead
+    if domain not in ['login', 'test'] and '.' not in domain:
+        # Custom domain - use instance_url parameter
+        instance_url = f"https://{domain}.my.salesforce.com"
         sf = Salesforce(
             username=username,
             password=password,
             security_token=security_token,
-            instance_url=f'https://{domain}'
+            instance_url=instance_url
         )
     else:
+        # Standard domain
         sf = Salesforce(
             username=username,
             password=password,
@@ -319,15 +322,18 @@ try:
         print(json.dumps({"error": "Salesforce credentials not configured"}))
         exit(1)
     
-    # Handle custom lightning domain
-    if 'lightning.force.com' in domain:
+    # For custom domains, we need to use instance_url instead
+    if domain not in ['login', 'test'] and '.' not in domain:
+        # Custom domain - use instance_url parameter
+        instance_url = f"https://{domain}.my.salesforce.com"
         sf = Salesforce(
             username=username,
             password=password,
             security_token=security_token,
-            instance_url=f'https://{domain}'
+            instance_url=instance_url
         )
     else:
+        # Standard domain
         sf = Salesforce(
             username=username,
             password=password,
