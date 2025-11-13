@@ -178,12 +178,13 @@ try:
         """
     else:
         # No filters - get ALL programs
+        # Don't use ORDER BY CreatedDate - it might not exist or cause issues
+        # Just get all programs without ordering
         programs_query = """
             SELECT Id, Name, 
                    Program_Start_Date__c, Program_End_Date__c,
                    Status__c, Status_a__c
             FROM Program__c
-            ORDER BY CreatedDate DESC
             LIMIT 100
         """
     
@@ -217,22 +218,44 @@ try:
             if len(records) == 0 and programs.get('totalSize', 0) > 0:
                 print(f"WARNING: totalSize is {programs.get('totalSize', 0)} but records array is empty!", file=sys.stderr)
             
-            print(json.dumps({
-                "success": True,
-                "records": records,
-                "totalSize": programs.get('totalSize', 0),
-                "debug": {
-                    "testQueryResults": test_result.get('totalSize', 0),
-                    "testQuery2Results": test_result2.get('totalSize', 0),
-                    "testQuery2Records": test_result2.get('records', [])[:2],  # First 2 records
-                    "testQuery3Results": test_result3.get('totalSize', 0),
-                    "testQuery3Records": test_result3.get('records', [])[:2],  # First 2 records with date filter
-                    "fullQueryResults": programs.get('totalSize', 0),
-                    "fullQueryRecordsCount": len(records),
-                    "query": programs_query,
-                    "hasWhereClause": bool(where_clause)
-                }
-            }))
+            # If main query returns 0 but test query 2 has results, use test query 2
+            if len(records) == 0 and test_result2.get('totalSize', 0) > 0:
+                print(f"DEBUG: Main query returned 0 but test_query2 has {test_result2.get('totalSize', 0)} records. Using test_query2 results.", file=sys.stderr)
+                records = test_result2.get('records', [])
+                print(json.dumps({
+                    "success": True,
+                    "records": records,
+                    "totalSize": test_result2.get('totalSize', 0),
+                    "debug": {
+                        "testQueryResults": test_result.get('totalSize', 0),
+                        "testQuery2Results": test_result2.get('totalSize', 0),
+                        "testQuery2Records": test_result2.get('records', [])[:2],
+                        "testQuery3Results": test_result3.get('totalSize', 0),
+                        "fullQueryResults": programs.get('totalSize', 0),
+                        "fullQueryRecordsCount": len(programs.get('records', [])),
+                        "query": programs_query,
+                        "hasWhereClause": bool(where_clause),
+                        "usedFallback": True,
+                        "fallbackReason": "Main query returned 0 but test_query2 had results"
+                    }
+                }))
+            else:
+                print(json.dumps({
+                    "success": True,
+                    "records": records,
+                    "totalSize": programs.get('totalSize', 0),
+                    "debug": {
+                        "testQueryResults": test_result.get('totalSize', 0),
+                        "testQuery2Results": test_result2.get('totalSize', 0),
+                        "testQuery2Records": test_result2.get('records', [])[:2],  # First 2 records
+                        "testQuery3Results": test_result3.get('totalSize', 0),
+                        "testQuery3Records": test_result3.get('records', [])[:2],  # First 2 records with date filter
+                        "fullQueryResults": programs.get('totalSize', 0),
+                        "fullQueryRecordsCount": len(records),
+                        "query": programs_query,
+                        "hasWhereClause": bool(where_clause)
+                    }
+                }))
         except Exception as query_error:
             # If full query fails, use test_query2 results as fallback
             print(f"ERROR: Full query failed: {query_error}", file=sys.stderr)
@@ -250,7 +273,8 @@ try:
                     "fullQueryError": str(query_error),
                     "query": programs_query,
                     "hasWhereClause": bool(where_clause),
-                    "usedFallback": True
+                    "usedFallback": True,
+                    "fallbackReason": f"Query failed with error: {str(query_error)}"
                 }
             }))
     except Exception as e:
