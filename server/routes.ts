@@ -501,6 +501,34 @@ except Exception as e:
       const debug = Array.isArray(result) ? null : (result.debug || null);
       const stderr = Array.isArray(result) ? null : (result.stderr || null);
       
+      console.log(`[API] Query result:`, {
+        isArray: Array.isArray(result),
+        programsCount: programs.length,
+        hasDebug: !!debug,
+        debugTestQueryResults: debug?.testQueryResults,
+        debugTestQuery2Results: debug?.testQuery2Results,
+        debugFullQueryResults: debug?.fullQueryResults,
+        usedFallback: debug?.usedFallback
+      });
+      
+      // If test queries show records but main query doesn't, use fallback
+      if (programs.length === 0 && debug?.testQuery2Results > 0 && !debug?.usedFallback) {
+        console.log(`[API] Main query returned 0 but test query shows ${debug.testQuery2Results} records. Using test query results.`);
+        // The Python script should have already used fallback, but if not, we'll use test query records
+        if (debug.testQuery2Records && debug.testQuery2Records.length > 0) {
+          return res.json({
+            success: true,
+            programs: debug.testQuery2Records,
+            count: debug.testQuery2Records.length,
+            filteredByCurrentQuarter: filterByCurrentQuarter,
+            filteredByNext60Days: filterByNext60Days,
+            debug: debug,
+            stderr: stderr,
+            usedFallback: true
+          });
+        }
+      }
+      
       res.json({ 
         success: true,
         programs,

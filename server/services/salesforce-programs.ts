@@ -302,6 +302,28 @@ except Exception as e:
 
       const records = result.records || [];
       console.log(`[getPrograms] Returning ${records.length} records`);
+      console.log(`[getPrograms] Debug info:`, {
+        testQueryResults: result.debug?.testQueryResults,
+        testQuery2Results: result.debug?.testQuery2Results,
+        fullQueryResults: result.debug?.fullQueryResults,
+        usedFallback: result.debug?.usedFallback
+      });
+      
+      // If main query returned 0 but test queries show records, use test query results
+      if (records.length === 0 && result.debug?.testQuery2Results > 0 && !result.debug?.usedFallback) {
+        console.log(`[getPrograms] Main query returned 0 but test query 2 shows ${result.debug.testQuery2Results} records. Using test query 2 results as fallback.`);
+        const fallbackRecords = result.debug.testQuery2Records || [];
+        return {
+          records: fallbackRecords,
+          debug: {
+            ...result.debug,
+            usedFallback: true,
+            fallbackReason: 'Main query returned 0 but test query 2 had results'
+          },
+          stderr: result.stderr || null
+        };
+      }
+      
       if (records.length > 0) {
         console.log('[getPrograms] First record:', JSON.stringify(records[0], null, 2));
       }
