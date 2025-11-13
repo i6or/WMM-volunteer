@@ -164,23 +164,35 @@ try:
         # No date filter - get all programs (no status filter to see everything)
         where_clause = ""
     
-    # Build query - start simple, then add fields
-    # First try with just basic fields to see if query works
+    # Build query - include all fields we need for syncing
     if where_clause:
         programs_query = f"""
             SELECT Id, Name, 
                    Program_Start_Date__c, Program_End_Date__c,
-                   Status__c, Status_a__c
+                   Status__c, Status_a__c,
+                   Format__c, Type__c,
+                   Program_Leader__c, Program_Leader_Full_Name__c,
+                   Primary_Program_Partner__c,
+                   Zoom_link__c, Program_Schedule_Link__c,
+                   Total_Participants__c, Number_of_Workshops__c,
+                   Workshop_Start_Date_Time__c
             FROM Program__c
             {where_clause}
             ORDER BY Program_Start_Date__c ASC NULLS LAST
             LIMIT 100
         """
     else:
+        # No filters - get ALL programs
         programs_query = """
             SELECT Id, Name, 
                    Program_Start_Date__c, Program_End_Date__c,
-                   Status__c, Status_a__c
+                   Status__c, Status_a__c,
+                   Format__c, Type__c,
+                   Program_Leader__c, Program_Leader_Full_Name__c,
+                   Primary_Program_Partner__c,
+                   Zoom_link__c, Program_Schedule_Link__c,
+                   Total_Participants__c, Number_of_Workshops__c,
+                   Workshop_Start_Date_Time__c
             FROM Program__c
             ORDER BY CreatedDate DESC
             LIMIT 100
@@ -209,10 +221,15 @@ try:
         programs = sf.query(programs_query)
         print(f"DEBUG: Full query returned {programs.get('totalSize', 0)} records", file=sys.stderr)
         print(f"DEBUG: Query used: {programs_query}", file=sys.stderr)
+        print(f"DEBUG: Records in response: {len(programs.get('records', []))}", file=sys.stderr)
+        
+        records = programs.get('records', [])
+        if len(records) == 0 and programs.get('totalSize', 0) > 0:
+            print(f"WARNING: totalSize is {programs.get('totalSize', 0)} but records array is empty!", file=sys.stderr)
         
         print(json.dumps({
             "success": True,
-            "records": programs.get('records', []),
+            "records": records,
             "totalSize": programs.get('totalSize', 0),
             "debug": {
                 "testQueryResults": test_result.get('totalSize', 0),
@@ -221,7 +238,9 @@ try:
                 "testQuery3Results": test_result3.get('totalSize', 0),
                 "testQuery3Records": test_result3.get('records', [])[:2],  # First 2 records with date filter
                 "fullQueryResults": programs.get('totalSize', 0),
-                "query": programs_query
+                "fullQueryRecordsCount": len(records),
+                "query": programs_query,
+                "hasWhereClause": bool(where_clause)
             }
         }))
     except Exception as e:
