@@ -625,9 +625,27 @@ except Exception as e:
     try {
       const filters = programQuerySchema.parse(req.query);
       const programs = await storage.getAllPrograms(filters);
+      console.log(`[API /api/programs] Returning ${programs.length} programs from database`);
       res.json(programs);
     } catch (error) {
+      console.error('[API /api/programs] Error:', error);
       res.status(400).json({ message: "Invalid query parameters" });
+    }
+  });
+
+  // Debug endpoint to check what's in Neon database
+  app.get("/api/debug/db-programs", async (req, res) => {
+    try {
+      const programs = await storage.getAllPrograms({});
+      console.log(`[DEBUG] Database has ${programs.length} programs`);
+      res.json({ 
+        count: programs.length,
+        programs: programs.slice(0, 5), // First 5 for debugging
+        message: `Database contains ${programs.length} programs`
+      });
+    } catch (error) {
+      console.error('[DEBUG] Error checking database:', error);
+      res.status(500).json({ error: String(error) });
     }
   });
 

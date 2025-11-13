@@ -613,8 +613,25 @@ export default function AdminDashboard() {
                           <div className="text-sm text-yellow-700 bg-yellow-50 p-2 rounded">
                             Query succeeded but returned 0 programs. Check debug info above or try without filters.
                             {programsResult.debug && (
-                              <div className="mt-2 text-xs">
-                                Query used: {programsResult.debug.query.substring(0, 200)}...
+                              <div className="mt-2 text-xs space-y-1">
+                                <div><strong>Query used:</strong> {programsResult.debug.query?.substring(0, 200)}...</div>
+                                {programsResult.debug.testQueryResults !== undefined && (
+                                  <div>Test query 1 (basic): {programsResult.debug.testQueryResults} records</div>
+                                )}
+                                {programsResult.debug.testQuery2Results !== undefined && (
+                                  <div>Test query 2 (with fields): {programsResult.debug.testQuery2Results} records</div>
+                                )}
+                                {programsResult.debug.fullQueryResults !== undefined && (
+                                  <div>Full query: {programsResult.debug.fullQueryResults} records</div>
+                                )}
+                                {programsResult.debug.testQuery2Records && programsResult.debug.testQuery2Records.length > 0 && (
+                                  <div className="mt-2">
+                                    <strong>Sample from test query 2:</strong>
+                                    <pre className="text-xs bg-white p-1 rounded mt-1 max-h-20 overflow-auto">
+                                      {JSON.stringify(programsResult.debug.testQuery2Records[0], null, 2)}
+                                    </pre>
+                                  </div>
+                                )}
                               </div>
                             )}
                           </div>
