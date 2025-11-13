@@ -476,18 +476,21 @@ try:
     from simple_salesforce import Salesforce
     import json
     
-    # Handle custom lightning domain
+    # Domain should be 'login', 'test', or custom domain subdomain (e.g., 'wmm')
     domain = '${this.config.domain}'
-    if 'lightning.force.com' in domain:
-        # For custom My Domain, we need to use the instance_url parameter
+    
+    # For custom domains, we need to use instance_url instead
+    if domain not in ['login', 'test'] and '.' not in domain:
+        # Custom domain - use instance_url parameter
+        instance_url = f"https://{domain}.my.salesforce.com"
         sf = Salesforce(
             username='${this.config.username}',
             password='${this.config.password}',
             security_token='${this.config.securityToken}',
-            instance_url=f'https://{domain}'
+            instance_url=instance_url
         )
     else:
-        # Standard domain (login/test)
+        # Standard domain
         sf = Salesforce(
             username='${this.config.username}',
             password='${this.config.password}',
