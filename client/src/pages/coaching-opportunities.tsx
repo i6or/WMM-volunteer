@@ -348,11 +348,6 @@ export default function CoachingOpportunities() {
                           {program.ageRange && (
                             <div>{program.ageRange}</div>
                           )}
-                          {program.format && (
-                            <Badge variant="outline" className="border-green-300 text-green-100">
-                              {program.format}
-                            </Badge>
-                          )}
                         </div>
                       </div>
                     </div>

@@ -255,7 +255,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Get all opportunities for this program and category
-      const allOpportunities = await storage.getAllOpportunities({ programId });
+      // Use type assertion since getAllOpportunities accepts programId but TypeScript doesn't infer it from schema
+      const allOpportunities = await storage.getAllOpportunities({ programId, category } as Parameters<typeof storage.getAllOpportunities>[0]);
       const programOpportunities = allOpportunities.filter(opp => 
         opp.category === category && 
         (opp.filledSpots || 0) < opp.totalSpots
@@ -736,7 +737,7 @@ except Exception as e:
           connectionInfo,
           testQuery: 'Success',
           databaseName: testResult.rows[0]?.db_name,
-          version: testResult.rows[0]?.version?.substring(0, 50)
+          version: (testResult.rows[0]?.version as string)?.substring?.(0, 50) || 'Unknown'
         });
       } catch (queryError) {
         res.json({
