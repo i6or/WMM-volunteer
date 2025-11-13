@@ -185,6 +185,24 @@ export default function AdminDashboard() {
   const queryPrograms = async (filterType?: 'currentQuarter' | 'next60Days') => {
     setLoading(true);
     try {
+      // Try simple endpoint first for "All Programs"
+      if (!filterType) {
+        try {
+          const simpleResponse = await fetch('/api/salesforce/programs-simple', {
+            credentials: 'include'
+          });
+          const simpleResult = await simpleResponse.json();
+          if (simpleResult.success && simpleResult.count > 0) {
+            setProgramsResult(simpleResult);
+            setLoading(false);
+            return;
+          }
+        } catch (e) {
+          console.log('Simple endpoint failed, trying regular endpoint');
+        }
+      }
+      
+      // Use regular endpoint for filtered queries or if simple failed
       const params = new URLSearchParams();
       if (filterType === 'currentQuarter') {
         params.set('currentQuarter', 'true');

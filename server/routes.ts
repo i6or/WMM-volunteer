@@ -486,6 +486,70 @@ except Exception as e:
     }
   });
 
+  // SIMPLE endpoint to get all programs - uses exact working query
+  app.get("/api/salesforce/programs-simple", async (req, res) => {
+    try {
+      const config = salesforceService.config;
+      const scriptContent = `
+import sys
+import os
+sys.path.append(os.path.expanduser('~/.pythonlibs'))
+
+try:
+    from simple_salesforce import Salesforce
+    import json
+    
+    domain = '${config.domain}'
+    username = '${config.username}'
+    password = '${config.password}'
+    security_token = '${config.securityToken}'
+    
+    if domain not in ['login', 'test'] and '.' not in domain:
+        instance_url = f"https://{domain}.my.salesforce.com"
+        sf = Salesforce(username=username, password=password, security_token=security_token, instance_url=instance_url)
+    else:
+        sf = Salesforce(username=username, password=password, security_token=security_token, domain=domain)
+    
+    # Use the EXACT query that we know works
+    query = "SELECT Id, Name, Program_Start_Date__c, Program_End_Date__c, Status__c, Status_a__c FROM Program__c LIMIT 100"
+    print(f"DEBUG: Executing: {query}", file=sys.stderr)
+    
+    result = sf.query(query)
+    records = result.get('records', [])
+    total = result.get('totalSize', 0)
+    
+    print(f"DEBUG: Got {total} total, {len(records)} records", file=sys.stderr)
+    
+    print(json.dumps({
+        "success": True,
+        "records": records,
+        "totalSize": total
+    }))
+except Exception as e:
+    print(json.dumps({"error": str(e)}))
+    import traceback
+    print(f"Traceback: {traceback.format_exc()}", file=sys.stderr)
+`;
+
+      const result = await salesforceService['executePythonScript'](scriptContent);
+      console.log('[SIMPLE] Result:', JSON.stringify(result, null, 2));
+      
+      if (result.error) {
+        return res.status(500).json({ success: false, error: result.error });
+      }
+      
+      res.json({
+        success: true,
+        programs: result.records || [],
+        count: result.records?.length || 0,
+        totalSize: result.totalSize || 0
+      });
+    } catch (error) {
+      console.error('[SIMPLE] Error:', error);
+      res.status(500).json({ success: false, error: String(error) });
+    }
+  });
+
   // Query Programs from Salesforce
   app.get("/api/salesforce/programs", async (req, res) => {
     try {
