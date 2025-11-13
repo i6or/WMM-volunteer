@@ -3,6 +3,8 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { salesforceService } from "./services/salesforce";
 import { ProgramSyncService } from "./services/sync-programs";
+import { db } from "./db";
+import { sql } from "drizzle-orm";
 import { insertVolunteerSchema, insertOpportunitySchema, insertVolunteerSignupSchema, insertProgramSchema, insertWorkshopSchema, insertParticipantSchema, insertParticipantWorkshopSchema } from "@shared/schema";
 import { z } from "zod";
 
@@ -633,14 +635,60 @@ except Exception as e:
     }
   });
 
+  // Debug endpoint to check database connection
+  app.get("/api/debug/db-connection", async (req, res) => {
+    try {
+      const dbUrl = process.env.DATABASE_URL || '';
+      // Extract connection info without exposing password
+      const urlMatch = dbUrl.match(/postgresql:\/\/([^:]+):([^@]+)@([^\/]+)\/([^?]+)/);
+      const connectionInfo = urlMatch ? {
+        user: urlMatch[1],
+        host: urlMatch[3],
+        database: urlMatch[4],
+        hasPassword: !!urlMatch[2]
+      } : { error: 'Could not parse DATABASE_URL' };
+      
+      // Try a simple query to test connection
+      try {
+        const testResult = await db.execute(sql`SELECT 1 as test, current_database() as db_name, version() as version`);
+        res.json({
+          success: true,
+          connectionInfo,
+          testQuery: 'Success',
+          databaseName: testResult.rows[0]?.db_name,
+          version: testResult.rows[0]?.version?.substring(0, 50)
+        });
+      } catch (queryError) {
+        res.json({
+          success: false,
+          connectionInfo,
+          error: String(queryError)
+        });
+      }
+    } catch (error) {
+      console.error('[DEBUG] Error checking database connection:', error);
+      res.status(500).json({ error: String(error) });
+    }
+  });
+
   // Debug endpoint to check what's in Neon database
   app.get("/api/debug/db-programs", async (req, res) => {
     try {
       const programs = await storage.getAllPrograms({});
       console.log(`[DEBUG] Database has ${programs.length} programs`);
+      
+      // Also check tables
+      const tablesResult = await db.execute(sql`
+        SELECT table_name 
+        FROM information_schema.tables 
+        WHERE table_schema = 'public' 
+        ORDER BY table_name
+      `);
+      
       res.json({ 
         count: programs.length,
         programs: programs.slice(0, 5), // First 5 for debugging
+        tables: tablesResult.rows.map((r: any) => r.table_name),
         message: `Database contains ${programs.length} programs`
       });
     } catch (error) {

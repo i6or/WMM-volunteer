@@ -121,6 +121,14 @@ export default function AdminDashboard() {
   const checkDatabase = async () => {
     setLoading(true);
     try {
+      // First check connection
+      const connResponse = await fetch('/api/debug/db-connection', {
+        credentials: 'include'
+      });
+      const connResult = await connResponse.json();
+      console.log('Database connection check:', connResult);
+      
+      // Then check programs
       const response = await fetch('/api/debug/db-programs', {
         credentials: 'include'
       });
@@ -131,7 +139,10 @@ export default function AdminDashboard() {
         message: result.message || `Database has ${result.count} programs`,
         count: result.count,
         programs: result.programs || [],
-        testResult: result
+        testResult: {
+          connection: connResult,
+          programs: result
+        }
       });
     } catch (error) {
       setProgramsResult({
