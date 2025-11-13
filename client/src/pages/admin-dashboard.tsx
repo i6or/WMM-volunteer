@@ -741,6 +741,18 @@ export default function AdminDashboard() {
                               <div>• Test query 3 (date filter only): {programsResult.debug.testQuery3Results} records</div>
                             )}
                             <div>• Full query (all filters): {programsResult.debug.fullQueryResults ?? 'N/A'} records</div>
+                            {programsResult.debug.testQuery2Records && programsResult.debug.testQuery2Records.length > 0 && (
+                              <div className="mt-2 p-2 bg-white rounded">
+                                <strong>Sample Programs (no filters) - Check their dates:</strong>
+                                {programsResult.debug.testQuery2Records.map((record: any, idx: number) => (
+                                  <div key={idx} className="mt-1 text-xs">
+                                    <div><strong>{record.Name}</strong> (ID: {record.Id})</div>
+                                    <div>Start Date: {record.Program_Start_Date__c || 'NULL'}</div>
+                                    <div>Status: {record.Status__c || record.Status_a__c || 'NULL'}</div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
                             {programsResult.debug.query && (
                               <div className="mt-2">
                                 <strong>Query used:</strong>
