@@ -616,6 +616,14 @@ export default function AdminDashboard() {
                     {!programsResult.success && (
                       <div className="mt-2 space-y-2">
                         <p className="text-sm text-red-700">{programsResult.message || programsResult.error}</p>
+                        {programsResult.testResult && (
+                          <div className="mt-2 p-2 bg-blue-50 rounded text-xs">
+                            <strong>Test Program Result:</strong>
+                            <pre className="mt-1 bg-white p-1 rounded max-h-40 overflow-auto">
+                              {JSON.stringify(programsResult.testResult, null, 2)}
+                            </pre>
+                          </div>
+                        )}
                         {programsResult.available_fields && (
                           <div className="text-xs bg-gray-100 p-2 rounded">
                             <strong>Available fields:</strong> {programsResult.available_fields.join(', ')}
@@ -631,6 +639,14 @@ export default function AdminDashboard() {
                             )}
                           </div>
                         )}
+                      </div>
+                    )}
+                    {programsResult.success && programsResult.testResult && (
+                      <div className="mt-2 p-2 bg-green-50 rounded text-xs">
+                        <strong>Test Program Result:</strong>
+                        <pre className="mt-1 bg-white p-1 rounded max-h-40 overflow-auto">
+                          {JSON.stringify(programsResult.testResult, null, 2)}
+                        </pre>
                       </div>
                     )}
                   </div>
