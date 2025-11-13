@@ -95,6 +95,29 @@ export default function AdminDashboard() {
     setLoading(false);
   };
 
+  const testSpecificProgram = async () => {
+    setLoading(true);
+    try {
+      // Test with the program ID the user mentioned earlier
+      const response = await fetch('/api/salesforce/test-program/a0OUa00000HGsYwMAL', {
+        credentials: 'include'
+      });
+      const result = await response.json();
+      console.log('Test program result:', result);
+      setProgramsResult({
+        success: result.success,
+        message: result.success ? 'Found program!' : `Error: ${result.error || result.message}`,
+        testResult: result
+      });
+    } catch (error) {
+      setProgramsResult({
+        success: false,
+        message: `Network error: ${error}`
+      });
+    }
+    setLoading(false);
+  };
+
   const queryPrograms = async (filterType?: 'currentQuarter' | 'next60Days') => {
     setLoading(true);
     try {
@@ -404,6 +427,16 @@ export default function AdminDashboard() {
                 <p className="text-sm text-muted-foreground">
                   Query Programs from Salesforce. Filter by Current Quarter or Next 60 Days to get real data.
                 </p>
+                <div className="mb-2">
+                  <Button 
+                    onClick={testSpecificProgram} 
+                    disabled={loading || !connectionResult?.success}
+                    variant="outline"
+                    className="w-full"
+                  >
+                    {loading ? "Testing..." : "Test Specific Program (a0OUa00000HGsYwMAL)"}
+                  </Button>
+                </div>
                 <div className="space-y-2">
                   <div className="flex gap-2">
                     <Button 

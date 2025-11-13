@@ -10,7 +10,7 @@ interface SalesforceConfig {
 }
 
 export class SalesforceService {
-  private config: SalesforceConfig;
+  public config: SalesforceConfig; // Made public for test endpoint
   public programService: SalesforceProgramService;
 
   constructor() {

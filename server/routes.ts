@@ -409,6 +409,66 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Test query for a specific program ID
+  app.get("/api/salesforce/test-program/:programId", async (req, res) => {
+    try {
+      const { programId } = req.params;
+      const config = salesforceService['config'];
+      const scriptContent = `
+import sys
+import os
+sys.path.append(os.path.expanduser('~/.pythonlibs'))
+
+try:
+    from simple_salesforce import Salesforce
+    import json
+    
+    domain = '${config.domain}'
+    sf = Salesforce(
+        username='${config.username}',
+        password='${config.password}',
+        security_token='${config.securityToken}',
+        domain=domain
+    )
+    
+    # Try to query the specific program
+    try:
+        program = sf.Program__c.get('${programId}')
+        print(json.dumps({
+            "success": True,
+            "program": program
+        }))
+    except Exception as e:
+        # Try SOQL query instead
+        try:
+            query = f"SELECT Id, Name, Program_Start_Date__c FROM Program__c WHERE Id = '${programId}'"
+            result = sf.query(query)
+            print(json.dumps({
+                "success": True,
+                "query": query,
+                "result": result
+            }))
+        except Exception as e2:
+            print(json.dumps({
+                "success": False,
+                "error": str(e2),
+                "originalError": str(e)
+            }))
+except Exception as e:
+    print(json.dumps({"error": str(e)}))
+`;
+      
+      const result = await salesforceService['executePythonScript'](scriptContent);
+      res.json(result);
+    } catch (error) {
+      console.error("Failed to test program query:", error);
+      res.status(500).json({ 
+        success: false, 
+        message: `Failed to test program query: ${error}` 
+      });
+    }
+  });
+
   // Query Programs from Salesforce
   app.get("/api/salesforce/programs", async (req, res) => {
     try {
