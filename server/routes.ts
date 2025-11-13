@@ -674,26 +674,119 @@ except Exception as e:
   // Debug endpoint to check what's in Neon database
   app.get("/api/debug/db-programs", async (req, res) => {
     try {
-      const programs = await storage.getAllPrograms({});
-      console.log(`[DEBUG] Database has ${programs.length} programs`);
-      
-      // Also check tables
+      // First check what tables exist
       const tablesResult = await db.execute(sql`
         SELECT table_name 
         FROM information_schema.tables 
         WHERE table_schema = 'public' 
         ORDER BY table_name
       `);
+      const tables = tablesResult.rows.map((r: any) => r.table_name);
       
-      res.json({ 
-        count: programs.length,
-        programs: programs.slice(0, 5), // First 5 for debugging
-        tables: tablesResult.rows.map((r: any) => r.table_name),
-        message: `Database contains ${programs.length} programs`
-      });
+      // Check if programs table exists
+      const hasProgramsTable = tables.includes('programs');
+      
+      if (!hasProgramsTable) {
+        return res.json({ 
+          count: 0,
+          programs: [],
+          tables: tables,
+          message: 'Database schema not applied. Tables missing. Click "Push Database Schema" to create tables.',
+          schemaMissing: true,
+          error: 'relation "programs" does not exist'
+        });
+      }
+      
+      // If table exists, try to query programs
+      try {
+        const programs = await storage.getAllPrograms({});
+        console.log(`[DEBUG] Database has ${programs.length} programs`);
+        
+        res.json({ 
+          count: programs.length,
+          programs: programs.slice(0, 5), // First 5 for debugging
+          tables: tables,
+          message: `Database contains ${programs.length} programs`
+        });
+      } catch (queryError: any) {
+        // If query fails, still return table info
+        res.json({
+          count: 0,
+          programs: [],
+          tables: tables,
+          message: `Tables exist but query failed: ${queryError.message}`,
+          queryError: String(queryError)
+        });
+      }
     } catch (error) {
       console.error('[DEBUG] Error checking database:', error);
-      res.status(500).json({ error: String(error) });
+      res.status(500).json({ 
+        error: String(error),
+        message: 'Failed to check database. Verify DATABASE_URL is correct.'
+      });
+    }
+  });
+
+  // Admin endpoint to push database schema
+  app.post("/api/admin/push-schema", async (req, res) => {
+    try {
+      // Use drizzle-kit push via spawn
+      const { spawn } = await import('child_process');
+      
+      return new Promise((resolve) => {
+        const pushProcess = spawn('npx', ['drizzle-kit', 'push'], {
+          env: { ...process.env },
+          shell: true,
+          cwd: process.cwd()
+        });
+        
+        let stdout = '';
+        let stderr = '';
+        
+        pushProcess.stdout.on('data', (data) => {
+          stdout += data.toString();
+          console.log('[Schema Push]', data.toString());
+        });
+        
+        pushProcess.stderr.on('data', (data) => {
+          stderr += data.toString();
+          console.error('[Schema Push Error]', data.toString());
+        });
+        
+        pushProcess.on('close', (code) => {
+          if (code === 0) {
+            res.json({
+              success: true,
+              message: 'Database schema pushed successfully',
+              output: stdout
+            });
+          } else {
+            res.status(500).json({
+              success: false,
+              message: 'Failed to push schema',
+              error: stderr || stdout,
+              code
+            });
+          }
+          resolve(undefined);
+        });
+        
+        pushProcess.on('error', (error) => {
+          res.status(500).json({
+            success: false,
+            message: 'Failed to start schema push process',
+            error: String(error)
+          });
+          resolve(undefined);
+        });
+      });
+    } catch (error) {
+      console.error('[Schema Push] Error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to push schema',
+        error: String(error)
+      });
     }
   });
 

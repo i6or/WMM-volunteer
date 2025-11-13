@@ -27,6 +27,7 @@ export default function AdminDashboard() {
   const [programsResult, setProgramsResult] = useState<any>(null);
   const [workshopsResult, setWorkshopsResult] = useState<any>(null);
   const [dbCheckResult, setDbCheckResult] = useState<any>(null);
+  const [schemaPushResult, setSchemaPushResult] = useState<any>(null);
 
   // Fetch dashboard stats
   const { data: stats } = useQuery({
@@ -136,10 +137,12 @@ export default function AdminDashboard() {
       const result = await response.json();
       console.log('Database check result:', result);
       setDbCheckResult({
-        success: true,
+        success: !result.schemaMissing,
         message: result.message || `Database has ${result.count} programs`,
         count: result.count,
         programs: result.programs || [],
+        schemaMissing: result.schemaMissing,
+        tables: result.tables || [],
         testResult: {
           connection: connResult,
           programs: result
@@ -149,6 +152,31 @@ export default function AdminDashboard() {
       setDbCheckResult({
         success: false,
         message: `Database check failed: ${error}`
+      });
+    }
+    setLoading(false);
+  };
+
+  const pushSchema = async () => {
+    setLoading(true);
+    setSchemaPushResult(null);
+    try {
+      const response = await fetch('/api/admin/push-schema', {
+        method: 'POST',
+        credentials: 'include'
+      });
+      const result = await response.json();
+      setSchemaPushResult(result);
+      if (result.success) {
+        // Refresh database check after successful push
+        setTimeout(() => {
+          checkDatabase();
+        }, 1000);
+      }
+    } catch (error) {
+      setSchemaPushResult({
+        success: false,
+        message: `Schema push failed: ${error}`
       });
     }
     setLoading(false);
@@ -418,24 +446,41 @@ export default function AdminDashboard() {
                 <p className="text-sm text-muted-foreground">
                   Verify your Neon database connection and check what data is currently stored.
                 </p>
-                <Button 
-                  onClick={checkDatabase} 
-                  disabled={loading}
-                  className="w-full bg-purple-600 hover:bg-purple-700"
-                >
-                  {loading ? "Checking..." : "Check Neon Database"}
-                </Button>
+                <div className="space-y-2">
+                  <Button 
+                    onClick={checkDatabase} 
+                    disabled={loading}
+                    className="w-full bg-purple-600 hover:bg-purple-700"
+                  >
+                    {loading ? "Checking..." : "Check Neon Database"}
+                  </Button>
+                  
+                  {dbCheckResult && dbCheckResult.schemaMissing && (
+                    <Button 
+                      onClick={pushSchema} 
+                      disabled={loading}
+                      className="w-full bg-orange-600 hover:bg-orange-700"
+                    >
+                      {loading ? "Pushing..." : "Push Database Schema"}
+                    </Button>
+                  )}
+                </div>
                 
                 {dbCheckResult && (
                   <div className={`p-4 rounded-lg ${
-                    dbCheckResult.success ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'
+                    dbCheckResult.success ? 'bg-green-50 border border-green-200' : dbCheckResult.schemaMissing ? 'bg-yellow-50 border border-yellow-200' : 'bg-red-50 border border-red-200'
                   }`}>
                     <div className="flex items-center gap-2 mb-2">
-                      <Badge variant={dbCheckResult.success ? "default" : "destructive"}>
-                        {dbCheckResult.success ? "Connected" : "Failed"}
+                      <Badge variant={dbCheckResult.success ? "default" : dbCheckResult.schemaMissing ? "secondary" : "destructive"}>
+                        {dbCheckResult.success ? "Connected" : dbCheckResult.schemaMissing ? "Schema Missing" : "Failed"}
                       </Badge>
                       <span className="text-sm font-medium">{dbCheckResult.message}</span>
                     </div>
+                    {dbCheckResult.schemaMissing && (
+                      <div className="mt-2 p-2 bg-yellow-100 rounded text-xs">
+                        <strong>⚠️ Action Required:</strong> Database tables are missing. Click "Push Database Schema" above to create all required tables (programs, workshops, opportunities, etc.).
+                      </div>
+                    )}
                     {dbCheckResult.testResult && dbCheckResult.testResult.connection && (
                       <div className="mt-3 space-y-2 text-xs">
                         <div><strong>Database:</strong> {dbCheckResult.testResult.connection.databaseName || 'N/A'}</div>
@@ -444,7 +489,7 @@ export default function AdminDashboard() {
                         {dbCheckResult.testResult.programs && (
                           <div className="mt-2">
                             <div><strong>Programs in database:</strong> {dbCheckResult.testResult.programs.count || 0}</div>
-                            <div><strong>Tables:</strong> {dbCheckResult.testResult.programs.tables?.join(', ') || 'N/A'}</div>
+                            <div><strong>Tables:</strong> {dbCheckResult.testResult.programs.tables?.length > 0 ? dbCheckResult.testResult.programs.tables.join(', ') : 'None found'}</div>
                             {dbCheckResult.testResult.programs.programs && dbCheckResult.testResult.programs.programs.length > 0 && (
                               <div className="mt-2">
                                 <strong>Sample programs:</strong>
@@ -456,6 +501,29 @@ export default function AdminDashboard() {
                           </div>
                         )}
                       </div>
+                    )}
+                  </div>
+                )}
+                
+                {schemaPushResult && (
+                  <div className={`p-4 rounded-lg ${
+                    schemaPushResult.success ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'
+                  }`}>
+                    <div className="flex items-center gap-2 mb-2">
+                      <Badge variant={schemaPushResult.success ? "default" : "destructive"}>
+                        {schemaPushResult.success ? "Success" : "Failed"}
+                      </Badge>
+                      <span className="text-sm font-medium">{schemaPushResult.message}</span>
+                    </div>
+                    {schemaPushResult.output && (
+                      <pre className="mt-2 text-xs bg-white p-2 rounded max-h-40 overflow-auto">
+                        {schemaPushResult.output}
+                      </pre>
+                    )}
+                    {schemaPushResult.error && (
+                      <pre className="mt-2 text-xs bg-red-100 p-2 rounded max-h-40 overflow-auto">
+                        {schemaPushResult.error}
+                      </pre>
                     )}
                   </div>
                 )}
