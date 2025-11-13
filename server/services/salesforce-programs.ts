@@ -89,11 +89,10 @@ export class SalesforceProgramService {
   }
 
   /**
-   * Query all Programs from Salesforce
-   * @param filterByCurrentQuarter - If true, only return programs starting in the current quarter
-   * @param filterByNext60Days - If true, only return programs starting in the next 60 days
+   * Query all Programs from Salesforce - SIMPLIFIED VERSION
+   * Uses the exact query pattern that we know works (test_query2)
    */
-  async getPrograms(filterByCurrentQuarter: boolean = false, filterByNext60Days: boolean = false): Promise<SalesforceProgram[] | { records: SalesforceProgram[]; debug?: any; stderr?: string }> {
+  async getPrograms(filterByCurrentQuarter: boolean = false, filterByNext60Days: boolean = false): Promise<{ records: SalesforceProgram[]; debug?: any; stderr?: string }> {
     const config = this.getConfig();
     const scriptContent = `
 import sys
@@ -103,10 +102,8 @@ sys.path.append(os.path.expanduser('~/.pythonlibs'))
 try:
     from simple_salesforce import Salesforce
     import json
-    from datetime import datetime
-    import traceback
     
-    # Get Salesforce config from environment
+    # Get Salesforce config
     domain = '${config.domain}'
     username = '${config.username}'
     password = '${config.password}'
@@ -116,9 +113,8 @@ try:
         print(json.dumps({"error": "Salesforce credentials not configured"}))
         exit(1)
     
-    # For custom domains, we need to use instance_url instead
+    # Connect to Salesforce
     if domain not in ['login', 'test'] and '.' not in domain:
-        # Custom domain - use instance_url parameter
         instance_url = f"https://{domain}.my.salesforce.com"
         sf = Salesforce(
             username=username,
@@ -127,7 +123,6 @@ try:
             instance_url=instance_url
         )
     else:
-        # Standard domain
         sf = Salesforce(
             username=username,
             password=password,
@@ -135,176 +130,50 @@ try:
             domain=domain
         )
     
-    # Query Programs
-    # Adjust field names based on your actual Salesforce schema
+    # Build date filter if needed
     filter_by_quarter = ${filterByCurrentQuarter}
     filter_by_next_60_days = ${filterByNext60Days}
     
-    from datetime import datetime, timedelta
-    now = datetime.now()
-    
     if filter_by_next_60_days:
-        # Use Salesforce date literals for better compatibility
-        # NEXT_N_DAYS:60 means next 60 days from today
-        # Try >= TODAY to include today's programs
         date_filter = "Program_Start_Date__c >= TODAY AND Program_Start_Date__c <= NEXT_N_DAYS:60"
+        where_clause = f"WHERE {date_filter}"
     elif filter_by_quarter:
-        # Use Salesforce date literals for current quarter
-        # THIS_QUARTER covers the current quarter
         date_filter = "Program_Start_Date__c = THIS_QUARTER"
-    else:
-        date_filter = ""
-    
-    # Build the WHERE clause
-    # Note: Status field might be Status__c or Status_a__c, and values might be different
-    # For now, don't filter by Status - let date filters handle it
-    if date_filter:
         where_clause = f"WHERE {date_filter}"
     else:
-        # No date filter - get all programs (no status filter to see everything)
         where_clause = ""
     
-    # Build query - start with essential fields only to avoid field errors
-    # We'll use the fields we know exist from test queries
+    # Use the exact query pattern that works (test_query2)
     if where_clause:
-        programs_query = f"""
-            SELECT Id, Name, 
-                   Program_Start_Date__c, Program_End_Date__c,
-                   Status__c, Status_a__c
-            FROM Program__c
-            {where_clause}
-            ORDER BY Program_Start_Date__c ASC NULLS LAST
-            LIMIT 100
-        """
+        query = f"SELECT Id, Name, Program_Start_Date__c, Program_End_Date__c, Status__c, Status_a__c FROM Program__c {where_clause} LIMIT 100"
     else:
-        # No filters - get ALL programs
-        # Don't use ORDER BY CreatedDate - it might not exist or cause issues
-        # Just get all programs without ordering
-        programs_query = """
-            SELECT Id, Name, 
-                   Program_Start_Date__c, Program_End_Date__c,
-                   Status__c, Status_a__c
-            FROM Program__c
-            LIMIT 100
-        """
+        query = "SELECT Id, Name, Program_Start_Date__c, Program_End_Date__c, Status__c, Status_a__c FROM Program__c LIMIT 100"
     
-    try:
-        # First, try a simple query to see if we can access Program__c at all
-        test_query = "SELECT Id, Name FROM Program__c LIMIT 5"
-        test_result = sf.query(test_query)
-        print(f"DEBUG: Test query (no filters) returned {test_result.get('totalSize', 0)} records", file=sys.stderr)
-        
-        # Try query without Status filter, with date field
-        test_query2 = "SELECT Id, Name, Program_Start_Date__c, Status__c, Status_a__c FROM Program__c LIMIT 5"
-        test_result2 = sf.query(test_query2)
-        print(f"DEBUG: Test query 2 (with date field) returned {test_result2.get('totalSize', 0)} records", file=sys.stderr)
-        
-        # Try query with date filter to see if date filter works
-        if date_filter:
-            test_query3 = f"SELECT Id, Name, Program_Start_Date__c FROM Program__c WHERE {date_filter} LIMIT 5"
-            test_result3 = sf.query(test_query3)
-            print(f"DEBUG: Test query 3 (with date filter) returned {test_result3.get('totalSize', 0)} records", file=sys.stderr)
-        else:
-            test_result3 = {"totalSize": 0, "records": []}
-        
-        # Now try the full query
-        try:
-            programs = sf.query(programs_query)
-            print(f"DEBUG: Full query returned {programs.get('totalSize', 0)} records", file=sys.stderr)
-            print(f"DEBUG: Query used: {programs_query}", file=sys.stderr)
-            print(f"DEBUG: Records in response: {len(programs.get('records', []))}", file=sys.stderr)
-            
-            records = programs.get('records', [])
-            if len(records) == 0 and programs.get('totalSize', 0) > 0:
-                print(f"WARNING: totalSize is {programs.get('totalSize', 0)} but records array is empty!", file=sys.stderr)
-            
-            # If main query returns 0 but test query 2 has results, use test query 2
-            if len(records) == 0 and test_result2.get('totalSize', 0) > 0:
-                print(f"DEBUG: Main query returned 0 but test_query2 has {test_result2.get('totalSize', 0)} records. Using test_query2 results.", file=sys.stderr)
-                records = test_result2.get('records', [])
-                print(json.dumps({
-                    "success": True,
-                    "records": records,
-                    "totalSize": test_result2.get('totalSize', 0),
-                    "debug": {
-                        "testQueryResults": test_result.get('totalSize', 0),
-                        "testQuery2Results": test_result2.get('totalSize', 0),
-                        "testQuery2Records": test_result2.get('records', [])[:2],
-                        "testQuery3Results": test_result3.get('totalSize', 0),
-                        "fullQueryResults": programs.get('totalSize', 0),
-                        "fullQueryRecordsCount": len(programs.get('records', [])),
-                        "query": programs_query,
-                        "hasWhereClause": bool(where_clause),
-                        "usedFallback": True,
-                        "fallbackReason": "Main query returned 0 but test_query2 had results"
-                    }
-                }))
-            else:
-                print(json.dumps({
-                    "success": True,
-                    "records": records,
-                    "totalSize": programs.get('totalSize', 0),
-                    "debug": {
-                        "testQueryResults": test_result.get('totalSize', 0),
-                        "testQuery2Results": test_result2.get('totalSize', 0),
-                        "testQuery2Records": test_result2.get('records', [])[:2],  # First 2 records
-                        "testQuery3Results": test_result3.get('totalSize', 0),
-                        "testQuery3Records": test_result3.get('records', [])[:2],  # First 2 records with date filter
-                        "fullQueryResults": programs.get('totalSize', 0),
-                        "fullQueryRecordsCount": len(records),
-                        "query": programs_query,
-                        "hasWhereClause": bool(where_clause)
-                    }
-                }))
-        except Exception as query_error:
-            # If full query fails, use test_query2 results as fallback
-            print(f"ERROR: Full query failed: {query_error}", file=sys.stderr)
-            print(f"DEBUG: Using test_query2 results as fallback", file=sys.stderr)
-            fallback_records = test_result2.get('records', [])
-            print(json.dumps({
-                "success": True,
-                "records": fallback_records,
-                "totalSize": test_result2.get('totalSize', 0),
-                "debug": {
-                    "testQueryResults": test_result.get('totalSize', 0),
-                    "testQuery2Results": test_result2.get('totalSize', 0),
-                    "testQuery2Records": test_result2.get('records', [])[:2],
-                    "testQuery3Results": test_result3.get('totalSize', 0),
-                    "fullQueryError": str(query_error),
-                    "query": programs_query,
-                    "hasWhereClause": bool(where_clause),
-                    "usedFallback": True,
-                    "fallbackReason": f"Query failed with error: {str(query_error)}"
-                }
-            }))
-    except Exception as e:
-        # Try alternative field names if the above fails
-        print(f"Error with standard query: {e}", file=sys.stderr)
-        # Fallback: try to describe the object to see available fields
-        try:
-            program_desc = sf.Program__c.describe()
-            available_fields = [f['name'] for f in program_desc['fields']]
-            # Also try a simple query without date filters
-            simple_query = "SELECT Id, Name FROM Program__c WHERE Status__c != 'Cancelled' LIMIT 5"
-            simple_result = sf.query(simple_query)
-            print(json.dumps({
-                "success": False,
-                "error": f"Query failed: {str(e)}",
-                "available_fields": available_fields[:30],  # First 30 fields
-                "simpleQueryResults": simple_result.get('totalSize', 0),
-                "simpleQueryRecords": simple_result.get('records', [])[:2]  # First 2 records
-            }))
-        except Exception as desc_error:
-            print(json.dumps({
-                "success": False,
-                "error": f"Query failed: {str(e)}",
-                "describeError": str(desc_error)
-            }))
+    print(f"DEBUG: Executing query: {query}", file=sys.stderr)
+    programs = sf.query(query)
+    
+    records = programs.get('records', [])
+    total_size = programs.get('totalSize', 0)
+    
+    print(f"DEBUG: Query returned {total_size} total records, {len(records)} in response", file=sys.stderr)
+    
+    print(json.dumps({
+        "success": True,
+        "records": records,
+        "totalSize": total_size,
+        "debug": {
+            "query": query,
+            "totalSize": total_size,
+            "recordsCount": len(records)
+        }
+    }))
     
 except ImportError:
     print(json.dumps({"error": "simple-salesforce not installed"}))
 except Exception as e:
     print(json.dumps({"error": str(e)}))
+    import traceback
+    print(f"Traceback: {traceback.format_exc()}", file=sys.stderr)
 `;
 
     try {
@@ -313,46 +182,21 @@ except Exception as e:
       
       if (result.error) {
         console.error('Salesforce Programs query error:', result.error);
-        return { records: [], debug: null };
+        return { records: [], debug: { error: result.error } };
       }
 
       if (result.success === false) {
         console.error('Salesforce Programs query failed:', result.error);
-        if (result.available_fields) {
-          console.log('Available fields:', result.available_fields);
-        }
         return { records: [], debug: result };
       }
 
       const records = result.records || [];
       console.log(`[getPrograms] Returning ${records.length} records`);
-      console.log(`[getPrograms] Debug info:`, {
-        testQueryResults: result.debug?.testQueryResults,
-        testQuery2Results: result.debug?.testQuery2Results,
-        fullQueryResults: result.debug?.fullQueryResults,
-        usedFallback: result.debug?.usedFallback
-      });
-      
-      // If main query returned 0 but test queries show records, use test query results
-      if (records.length === 0 && result.debug?.testQuery2Results > 0 && !result.debug?.usedFallback) {
-        console.log(`[getPrograms] Main query returned 0 but test query 2 shows ${result.debug.testQuery2Results} records. Using test query 2 results as fallback.`);
-        const fallbackRecords = result.debug.testQuery2Records || [];
-        return {
-          records: fallbackRecords,
-          debug: {
-            ...result.debug,
-            usedFallback: true,
-            fallbackReason: 'Main query returned 0 but test query 2 had results'
-          },
-          stderr: result.stderr || null
-        };
-      }
       
       if (records.length > 0) {
         console.log('[getPrograms] First record:', JSON.stringify(records[0], null, 2));
       }
       
-      // Return both records and debug info
       return {
         records,
         debug: result.debug || null,
@@ -360,7 +204,7 @@ except Exception as e:
       };
     } catch (error) {
       console.error('Failed to query Programs:', error);
-      return { records: [], debug: null };
+      return { records: [], debug: { error: String(error) } };
     }
   }
 
@@ -478,8 +322,7 @@ except Exception as e:
    */
   async getProgramsWithWorkshops(filterByCurrentQuarter: boolean = false, filterByNext60Days: boolean = false): Promise<Array<{ program: SalesforceProgram; workshops: SalesforceWorkshop[] }>> {
     const result = await this.getPrograms(filterByCurrentQuarter, filterByNext60Days);
-    // Handle both array (old format) and object (new format with debug)
-    const programs = Array.isArray(result) ? result : (result.records || []);
+    const programs = result.records || [];
     
     if (programs.length === 0) {
       return [];

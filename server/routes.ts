@@ -497,38 +497,16 @@ except Exception as e:
       
       const result = await salesforceService.programService.getPrograms(filterByCurrentQuarter, filterByNext60Days);
       
-      // Handle both array (old format) and object (new format with debug)
-      const programs = Array.isArray(result) ? result : result.records || [];
-      const debug = Array.isArray(result) ? null : (result.debug || null);
-      const stderr = Array.isArray(result) ? null : (result.stderr || null);
+      // Simplified function always returns { records, debug, stderr }
+      const programs = result.records || [];
+      const debug = result.debug || null;
+      const stderr = result.stderr || null;
       
       console.log(`[API] Query result:`, {
-        isArray: Array.isArray(result),
         programsCount: programs.length,
         hasDebug: !!debug,
-        debugTestQueryResults: debug?.testQueryResults,
-        debugTestQuery2Results: debug?.testQuery2Results,
-        debugFullQueryResults: debug?.fullQueryResults,
-        usedFallback: debug?.usedFallback
+        debugInfo: debug
       });
-      
-      // If test queries show records but main query doesn't, use fallback
-      if (programs.length === 0 && debug?.testQuery2Results > 0 && !debug?.usedFallback) {
-        console.log(`[API] Main query returned 0 but test query shows ${debug.testQuery2Results} records. Using test query results.`);
-        // The Python script should have already used fallback, but if not, we'll use test query records
-        if (debug.testQuery2Records && debug.testQuery2Records.length > 0) {
-          return res.json({
-            success: true,
-            programs: debug.testQuery2Records,
-            count: debug.testQuery2Records.length,
-            filteredByCurrentQuarter: filterByCurrentQuarter,
-            filteredByNext60Days: filterByNext60Days,
-            debug: debug,
-            stderr: stderr,
-            usedFallback: true
-          });
-        }
-      }
       
       res.json({ 
         success: true,
@@ -592,107 +570,65 @@ except Exception as e:
     }
   });
 
-  // Sync Programs and Workshops from Salesforce to Database
+  // Sync Programs and Workshops from Salesforce to Database - SIMPLIFIED
   app.post("/api/salesforce/sync-programs", async (req, res) => {
     try {
       const { currentQuarter, next60Days } = req.body;
       const filterByCurrentQuarter = currentQuarter === true || currentQuarter === 'true' || currentQuarter === '1';
       const filterByNext60Days = next60Days === true || next60Days === 'true' || next60Days === '1';
       
-      console.log(`[SYNC] Starting sync with filters - Current Quarter: ${filterByCurrentQuarter}, Next 60 Days: ${filterByNext60Days}`);
+      console.log(`[SYNC] Starting sync - Current Quarter: ${filterByCurrentQuarter}, Next 60 Days: ${filterByNext60Days}`);
       
-      // First, query Salesforce to see what we get
+      // Query Salesforce - simplified function now always returns { records, debug }
       const queryResult = await salesforceService.programService.getPrograms(filterByCurrentQuarter, filterByNext60Days);
-      const sfPrograms = Array.isArray(queryResult) ? queryResult : (queryResult.records || []);
-      console.log(`[SYNC] Salesforce query returned ${sfPrograms.length} programs`);
-      console.log(`[SYNC] Query result structure:`, { 
-        isArray: Array.isArray(queryResult), 
-        hasRecords: !Array.isArray(queryResult) && queryResult.records,
-        recordsLength: Array.isArray(queryResult) ? queryResult.length : (queryResult.records?.length || 0),
-        debug: !Array.isArray(queryResult) ? queryResult.debug : null
-      });
+      const sfPrograms = queryResult.records || [];
       
-      // If we got 0 programs, try without filters (unless we already tried without filters)
+      console.log(`[SYNC] Salesforce returned ${sfPrograms.length} programs`);
+      console.log(`[SYNC] Debug:`, queryResult.debug);
+      
       if (sfPrograms.length === 0) {
+        // If filters were used and returned 0, try without filters
         if (filterByCurrentQuarter || filterByNext60Days) {
-          // Filters were applied and returned 0, try without filters
-          console.log(`[SYNC] Filters returned 0 programs, trying without filters...`);
+          console.log(`[SYNC] Filters returned 0, trying without filters...`);
           const allResult = await salesforceService.programService.getPrograms(false, false);
-          const allPrograms = Array.isArray(allResult) ? allResult : (allResult.records || []);
-          console.log(`[SYNC] Query without filters returned ${allPrograms.length} programs`);
+          const allPrograms = allResult.records || [];
+          console.log(`[SYNC] Unfiltered query returned ${allPrograms.length} programs`);
           
           if (allPrograms.length > 0) {
-            // Use the programs without filters
-            console.log(`[SYNC] Using ${allPrograms.length} programs from unfiltered query`);
             const syncService = new ProgramSyncService(salesforceService.programService);
             const syncResult = await syncService.syncAllPrograms(false, false);
             
             return res.json({ 
               success: true,
-              message: `Synced ${syncResult.programsSynced} programs and ${syncResult.workshopsSynced} workshops to database (used unfiltered query since filters returned 0).`,
+              message: `Synced ${syncResult.programsSynced} programs and ${syncResult.workshopsSynced} workshops (used unfiltered query)`,
               programsSynced: syncResult.programsSynced,
               workshopsSynced: syncResult.workshopsSynced,
-              programs: syncResult.programs,
-              filteredByCurrentQuarter: filterByCurrentQuarter,
-              filteredByNext60Days: filterByNext60Days,
-              debug: {
-                programsFromSalesforce: sfPrograms.length,
-                programsWithoutFilters: allPrograms.length,
-                usedUnfiltered: true,
-                queryResultDebug: !Array.isArray(queryResult) ? queryResult.debug : null,
-                allResultDebug: !Array.isArray(allResult) ? allResult.debug : null
-              }
+              programs: syncResult.programs
             });
           }
-          
-          return res.json({ 
-            success: false,
-            message: `No programs found. Filters returned 0, and query without filters also returned ${allPrograms.length} programs. Check debug info.`,
-            programsSynced: 0,
-            workshopsSynced: 0,
-            programs: [],
-            filteredByCurrentQuarter: filterByCurrentQuarter,
-            filteredByNext60Days: filterByNext60Days,
-            debug: {
-              programsFromSalesforce: sfPrograms.length,
-              programsWithoutFilters: allPrograms.length,
-              queryResultDebug: !Array.isArray(queryResult) ? queryResult.debug : null,
-              allResultDebug: !Array.isArray(allResult) ? allResult.debug : null,
-              sampleProgram: allPrograms.length > 0 ? allPrograms[0] : null
-            }
-          });
-        } else {
-          // No filters were applied and we got 0 - this is unexpected if programs exist
-          console.log(`[SYNC] No filters applied but got 0 programs. Query result:`, JSON.stringify(queryResult, null, 2));
-          return res.json({ 
-            success: false,
-            message: `No programs found in Salesforce. Please check your Salesforce connection and ensure Program__c records exist.`,
-            programsSynced: 0,
-            workshopsSynced: 0,
-            programs: [],
-            debug: {
-              programsFromSalesforce: 0,
-              queryResult: queryResult,
-              queryResultDebug: !Array.isArray(queryResult) ? queryResult.debug : null,
-              queryResultStderr: !Array.isArray(queryResult) ? queryResult.stderr : null
-            }
-          });
         }
+        
+        return res.json({ 
+          success: false,
+          message: `No programs found. Query returned 0 programs.`,
+          programsSynced: 0,
+          workshopsSynced: 0,
+          debug: queryResult.debug
+        });
       }
       
+      // Sync the programs we found
       const syncService = new ProgramSyncService(salesforceService.programService);
       const syncResult = await syncService.syncAllPrograms(filterByNext60Days, filterByCurrentQuarter);
       
-      console.log(`[SYNC] Sync completed - ${syncResult.programsSynced} programs, ${syncResult.workshopsSynced} workshops`);
+      console.log(`[SYNC] Completed - ${syncResult.programsSynced} programs, ${syncResult.workshopsSynced} workshops`);
       
       res.json({ 
         success: true,
         message: `Synced ${syncResult.programsSynced} programs and ${syncResult.workshopsSynced} workshops to database`,
         programsSynced: syncResult.programsSynced,
         workshopsSynced: syncResult.workshopsSynced,
-        programs: syncResult.programs,
-        filteredByCurrentQuarter: filterByCurrentQuarter,
-        filteredByNext60Days: filterByNext60Days
+        programs: syncResult.programs
       });
     } catch (error) {
       console.error("Failed to sync Programs:", error);

@@ -159,10 +159,9 @@ export class ProgramSyncService {
     workshopsSynced: number;
     programs: any[];
   }> {
-    // Query programs from Salesforce
+    // Query programs from Salesforce - simplified function always returns { records, debug }
     const result = await this.programService.getPrograms(filterByCurrentQuarter, filterByNext60Days);
-    // Handle both array (old format) and object (new format)
-    const sfPrograms = Array.isArray(result) ? result : (result.records || []);
+    const sfPrograms = result.records || [];
 
     let totalWorkshops = 0;
     const syncedPrograms = [];
