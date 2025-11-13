@@ -623,12 +623,30 @@ export default function AdminDashboard() {
                 <div className="space-y-2">
                   <div className="flex gap-2">
                     <Button 
+                      onClick={async () => {
+                        setLoading(true);
+                        try {
+                          const response = await fetch('/api/programs/all', { credentials: 'include' });
+                          const result = await response.json();
+                          setProgramsResult(result);
+                        } catch (error) {
+                          setProgramsResult({ success: false, message: `Error: ${error}` });
+                        }
+                        setLoading(false);
+                      }}
+                      disabled={loading || !connectionResult?.success}
+                      variant="outline"
+                      className="flex-1"
+                    >
+                      {loading ? "Querying..." : "All Programs (Simple)"}
+                    </Button>
+                    <Button 
                       onClick={() => queryPrograms()} 
                       disabled={loading || !connectionResult?.success}
                       variant="outline"
                       className="flex-1"
                     >
-                      {loading ? "Querying..." : "All Programs"}
+                      {loading ? "Querying..." : "All Programs (Old)"}
                     </Button>
                     <Button 
                       onClick={() => queryPrograms('currentQuarter')} 
@@ -678,12 +696,36 @@ export default function AdminDashboard() {
                   </p>
                   <div className="flex gap-2">
                     <Button 
+                      onClick={async () => {
+                        setLoading(true);
+                        try {
+                          const response = await fetch('/api/programs/sync-all', {
+                            method: 'POST',
+                            credentials: 'include'
+                          });
+                          const result = await response.json();
+                          setSyncResult(result);
+                          if (result.success) {
+                            alert(`Successfully synced ${result.programsSynced} programs and ${result.workshopsSynced} workshops!`);
+                          }
+                        } catch (error) {
+                          setSyncResult({ success: false, message: `Error: ${error}` });
+                        }
+                        setLoading(false);
+                      }}
+                      disabled={loading || !connectionResult?.success}
+                      variant="outline"
+                      className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
+                    >
+                      {loading ? "Syncing..." : "Sync All (Simple)"}
+                    </Button>
+                    <Button 
                       onClick={() => syncProgramsToDatabase()} 
                       disabled={loading || !connectionResult?.success}
                       variant="outline"
                       className="flex-1"
                     >
-                      {loading ? "Syncing..." : "Sync All Programs"}
+                      {loading ? "Syncing..." : "Sync All Programs (Old)"}
                     </Button>
                     <Button 
                       onClick={() => syncProgramsToDatabase('currentQuarter')} 

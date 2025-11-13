@@ -40,6 +40,144 @@ const participantQuerySchema = z.object({
 });
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // ============================================
+  // SIMPLE PROGRAMS ENDPOINTS - MINIMAL APPROACH
+  // ============================================
+  
+  // Get ALL programs - simplest possible, no filters, no complexity
+  app.get("/api/programs/all", async (req, res) => {
+    try {
+      const config = salesforceService.config;
+      
+      const scriptContent = `
+import sys
+import os
+sys.path.append(os.path.expanduser('~/.pythonlibs'))
+
+from simple_salesforce import Salesforce
+import json
+
+domain = '${config.domain}'
+username = '${config.username}'
+password = '${config.password}'
+security_token = '${config.securityToken}'
+
+if domain not in ['login', 'test'] and '.' not in domain:
+    sf = Salesforce(username=username, password=password, security_token=security_token, instance_url=f"https://{domain}.my.salesforce.com")
+else:
+    sf = Salesforce(username=username, password=password, security_token=security_token, domain=domain)
+
+query = "SELECT Id, Name, Program_Start_Date__c, Program_End_Date__c, Status__c, Status_a__c FROM Program__c LIMIT 100"
+result = sf.query(query)
+
+print(json.dumps({
+    "success": True,
+    "records": result.get('records', []),
+    "totalSize": result.get('totalSize', 0)
+}))
+`;
+
+      const pythonResult = await salesforceService['executePythonScript'](scriptContent);
+      
+      if (pythonResult.error) {
+        return res.status(500).json({ success: false, error: pythonResult.error });
+      }
+      
+      const records = pythonResult.records || [];
+      
+      res.json({
+        success: true,
+        programs: records,
+        count: records.length
+      });
+    } catch (error) {
+      console.error('[SIMPLE PROGRAMS] Error:', error);
+      res.status(500).json({ success: false, error: String(error) });
+    }
+  });
+
+  // Sync ALL programs - simplest possible
+  app.post("/api/programs/sync-all", async (req, res) => {
+    try {
+      const config = salesforceService.config;
+      
+      const scriptContent = `
+import sys
+import os
+sys.path.append(os.path.expanduser('~/.pythonlibs'))
+
+from simple_salesforce import Salesforce
+import json
+
+domain = '${config.domain}'
+username = '${config.username}'
+password = '${config.password}'
+security_token = '${config.securityToken}'
+
+if domain not in ['login', 'test'] and '.' not in domain:
+    sf = Salesforce(username=username, password=password, security_token=security_token, instance_url=f"https://{domain}.my.salesforce.com")
+else:
+    sf = Salesforce(username=username, password=password, security_token=security_token, domain=domain)
+
+query = "SELECT Id, Name, Program_Start_Date__c, Program_End_Date__c, Status__c, Status_a__c FROM Program__c LIMIT 100"
+result = sf.query(query)
+
+print(json.dumps({
+    "success": True,
+    "records": result.get('records', []),
+    "totalSize": result.get('totalSize', 0)
+}))
+`;
+
+      const pythonResult = await salesforceService['executePythonScript'](scriptContent);
+      
+      if (pythonResult.error) {
+        return res.status(500).json({ success: false, error: pythonResult.error });
+      }
+      
+      const sfPrograms = pythonResult.records || [];
+      console.log(`[SYNC-ALL] Found ${sfPrograms.length} programs in Salesforce`);
+      
+      if (sfPrograms.length === 0) {
+        return res.json({
+          success: false,
+          message: "No programs found in Salesforce",
+          count: 0
+        });
+      }
+      
+      // Sync them using the sync service
+      const syncService = new ProgramSyncService(salesforceService.programService);
+      // Manually sync each program since we have the records
+      let programsSynced = 0;
+      let workshopsSynced = 0;
+      
+      for (const sfProgram of sfPrograms) {
+        try {
+          const { program, workshops } = await syncService.syncProgram(sfProgram);
+          programsSynced++;
+          workshopsSynced += workshops.length;
+        } catch (error) {
+          console.error(`Failed to sync program ${sfProgram.Id}:`, error);
+        }
+      }
+      
+      res.json({
+        success: true,
+        message: `Synced ${programsSynced} programs and ${workshopsSynced} workshops`,
+        programsSynced,
+        workshopsSynced
+      });
+    } catch (error) {
+      console.error('[SYNC-ALL] Error:', error);
+      res.status(500).json({ success: false, error: String(error) });
+    }
+  });
+
+  // ============================================
+  // END SIMPLE ENDPOINTS
+  // ============================================
+
   // Health check endpoint for Railway
   app.get("/api/health", async (req, res) => {
     res.json({ 
