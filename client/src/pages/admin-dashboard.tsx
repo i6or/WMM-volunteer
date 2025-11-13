@@ -26,6 +26,7 @@ export default function AdminDashboard() {
   const [syncResult, setSyncResult] = useState<any>(null);
   const [programsResult, setProgramsResult] = useState<any>(null);
   const [workshopsResult, setWorkshopsResult] = useState<any>(null);
+  const [dbCheckResult, setDbCheckResult] = useState<any>(null);
 
   // Fetch dashboard stats
   const { data: stats } = useQuery({
@@ -134,7 +135,7 @@ export default function AdminDashboard() {
       });
       const result = await response.json();
       console.log('Database check result:', result);
-      setProgramsResult({
+      setDbCheckResult({
         success: true,
         message: result.message || `Database has ${result.count} programs`,
         count: result.count,
@@ -145,7 +146,7 @@ export default function AdminDashboard() {
         }
       });
     } catch (error) {
-      setProgramsResult({
+      setDbCheckResult({
         success: false,
         message: `Database check failed: ${error}`
       });
@@ -408,6 +409,59 @@ export default function AdminDashboard() {
 
         {activeTab === "salesforce" && (
           <div className="space-y-6">
+            {/* Database Connection Check */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Neon Database Connection</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <p className="text-sm text-muted-foreground">
+                  Verify your Neon database connection and check what data is currently stored.
+                </p>
+                <Button 
+                  onClick={checkDatabase} 
+                  disabled={loading}
+                  className="w-full bg-purple-600 hover:bg-purple-700"
+                >
+                  {loading ? "Checking..." : "Check Neon Database"}
+                </Button>
+                
+                {dbCheckResult && (
+                  <div className={`p-4 rounded-lg ${
+                    dbCheckResult.success ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'
+                  }`}>
+                    <div className="flex items-center gap-2 mb-2">
+                      <Badge variant={dbCheckResult.success ? "default" : "destructive"}>
+                        {dbCheckResult.success ? "Connected" : "Failed"}
+                      </Badge>
+                      <span className="text-sm font-medium">{dbCheckResult.message}</span>
+                    </div>
+                    {dbCheckResult.testResult && dbCheckResult.testResult.connection && (
+                      <div className="mt-3 space-y-2 text-xs">
+                        <div><strong>Database:</strong> {dbCheckResult.testResult.connection.databaseName || 'N/A'}</div>
+                        <div><strong>Host:</strong> {dbCheckResult.testResult.connection.connectionInfo?.host || 'N/A'}</div>
+                        <div><strong>User:</strong> {dbCheckResult.testResult.connection.connectionInfo?.user || 'N/A'}</div>
+                        {dbCheckResult.testResult.programs && (
+                          <div className="mt-2">
+                            <div><strong>Programs in database:</strong> {dbCheckResult.testResult.programs.count || 0}</div>
+                            <div><strong>Tables:</strong> {dbCheckResult.testResult.programs.tables?.join(', ') || 'N/A'}</div>
+                            {dbCheckResult.testResult.programs.programs && dbCheckResult.testResult.programs.programs.length > 0 && (
+                              <div className="mt-2">
+                                <strong>Sample programs:</strong>
+                                <pre className="text-xs bg-white p-1 rounded mt-1 max-h-40 overflow-auto">
+                                  {JSON.stringify(dbCheckResult.testResult.programs.programs, null, 2)}
+                                </pre>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
             {/* Connection Test */}
             <Card>
               <CardHeader>
