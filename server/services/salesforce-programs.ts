@@ -164,34 +164,25 @@ try:
         # No date filter - get all programs (no status filter to see everything)
         where_clause = ""
     
-    # Build query - use WHERE only if we have a where_clause
+    # Build query - start simple, then add fields
+    # First try with just basic fields to see if query works
     if where_clause:
         programs_query = f"""
             SELECT Id, Name, 
                    Program_Start_Date__c, Program_End_Date__c,
-                   Status__c, Status_a__c, Format__c,
-                   Program_Leader__c, Program_Leader_Full_Name__c,
-                   Primary_Program_Partner__c, Type__c,
-                   Zoom_link__c, Program_Schedule_Link__c,
-                   Total_Participants__c, Number_of_Workshops__c,
-                   Workshop_Start_Date_Time__c
+                   Status__c, Status_a__c
             FROM Program__c
             {where_clause}
-            ORDER BY Program_Start_Date__c ASC
+            ORDER BY Program_Start_Date__c ASC NULLS LAST
             LIMIT 100
         """
     else:
         programs_query = """
             SELECT Id, Name, 
                    Program_Start_Date__c, Program_End_Date__c,
-                   Status__c, Status_a__c, Format__c,
-                   Program_Leader__c, Program_Leader_Full_Name__c,
-                   Primary_Program_Partner__c, Type__c,
-                   Zoom_link__c, Program_Schedule_Link__c,
-                   Total_Participants__c, Number_of_Workshops__c,
-                   Workshop_Start_Date_Time__c
+                   Status__c, Status_a__c
             FROM Program__c
-            ORDER BY Program_Start_Date__c DESC
+            ORDER BY CreatedDate DESC
             LIMIT 100
         """
     
