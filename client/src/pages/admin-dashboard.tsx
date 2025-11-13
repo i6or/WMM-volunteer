@@ -118,6 +118,30 @@ export default function AdminDashboard() {
     setLoading(false);
   };
 
+  const checkDatabase = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch('/api/debug/db-programs', {
+        credentials: 'include'
+      });
+      const result = await response.json();
+      console.log('Database check result:', result);
+      setProgramsResult({
+        success: true,
+        message: result.message || `Database has ${result.count} programs`,
+        count: result.count,
+        programs: result.programs || [],
+        testResult: result
+      });
+    } catch (error) {
+      setProgramsResult({
+        success: false,
+        message: `Database check failed: ${error}`
+      });
+    }
+    setLoading(false);
+  };
+
   const queryPrograms = async (filterType?: 'currentQuarter' | 'next60Days') => {
     setLoading(true);
     try {
@@ -427,7 +451,7 @@ export default function AdminDashboard() {
                 <p className="text-sm text-muted-foreground">
                   Query Programs from Salesforce. Filter by Current Quarter or Next 60 Days to get real data.
                 </p>
-                <div className="mb-2">
+                <div className="mb-2 space-y-2">
                   <Button 
                     onClick={testSpecificProgram} 
                     disabled={loading || !connectionResult?.success}
@@ -435,6 +459,14 @@ export default function AdminDashboard() {
                     className="w-full"
                   >
                     {loading ? "Testing..." : "Test Specific Program (a0OUa00000HGsYwMAL)"}
+                  </Button>
+                  <Button 
+                    onClick={checkDatabase} 
+                    disabled={loading}
+                    variant="outline"
+                    className="w-full"
+                  >
+                    {loading ? "Checking..." : "Check Neon Database"}
                   </Button>
                 </div>
                 <div className="space-y-2">
