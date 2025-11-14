@@ -612,6 +612,24 @@ export default function AdminDashboard() {
                     {loading ? "Testing..." : "Test Specific Program (a0OUa00000HGsYwMAL)"}
                   </Button>
                   <Button 
+                    onClick={async () => {
+                      setLoading(true);
+                      try {
+                        const response = await fetch('/api/test-workshops/a0OUa00000HGsYwMAL', { credentials: 'include' });
+                        const result = await response.json();
+                        alert(`Found ${result.count} workshops:\n\n${JSON.stringify(result, null, 2)}`);
+                      } catch (error) {
+                        alert(`Error: ${error}`);
+                      }
+                      setLoading(false);
+                    }}
+                    disabled={loading || !connectionResult?.success}
+                    variant="outline"
+                    className="w-full"
+                  >
+                    {loading ? "Testing..." : "Test Workshops for Program"}
+                  </Button>
+                  <Button 
                     onClick={checkDatabase} 
                     disabled={loading}
                     variant="outline"
