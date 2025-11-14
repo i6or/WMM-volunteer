@@ -310,15 +310,9 @@ except Exception as e:
         return [];
       }
 
-      if (result.success === false) {
-        console.error(`Salesforce Workshops query failed for Program ${programId}:`, result.error);
-        if (result.available_fields) {
-          console.log('Available fields:', result.available_fields);
-        }
-        return [];
-      }
-
-      return result.records || [];
+      const records = result.records || [];
+      console.log(`[getWorkshopsForProgram] Returning ${records.length} workshops for program ${programId}`);
+      return records;
     } catch (error) {
       console.error(`Failed to query Workshops for Program ${programId}:`, error);
       return [];
