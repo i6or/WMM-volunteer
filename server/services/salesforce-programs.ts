@@ -252,8 +252,8 @@ try:
         )
     
     # Query Workshops for this Program
-    # Adjust field names based on your actual Salesforce schema
-    workshops_query = f"""
+    # Try multiple possible relationship field names
+    workshops_query1 = f"""
         SELECT Id, Name, Program__c,
                Date_Time__c, Presenter__c,
                Attendee_Count__c, Workshop_Name__c
@@ -262,30 +262,50 @@ try:
         ORDER BY Date_Time__c ASC
     """
     
+    # Alternative: try without ORDER BY in case Date_Time__c is null
+    workshops_query2 = f"""
+        SELECT Id, Name, Program__c,
+               Date_Time__c, Presenter__c,
+               Attendee_Count__c, Workshop_Name__c
+        FROM Workshop__c
+        WHERE Program__c = '{programId}'
+    """
+    
+    # Try the first query
     try:
-        workshops = sf.query(workshops_query)
+        workshops = sf.query(workshops_query1)
         print(json.dumps({
             "success": True,
             "records": workshops.get('records', []),
-            "totalSize": workshops.get('totalSize', 0)
+            "totalSize": workshops.get('totalSize', 0),
+            "query": "query1"
         }))
-    except Exception as e:
-        # Try alternative field names if the above fails
-        print(f"Error with standard query: {e}")
-        # Fallback: try to describe the object to see available fields
+    except Exception as e1:
+        # Try the second query
         try:
-            workshop_desc = sf.Workshop__c.describe()
-            available_fields = [f['name'] for f in workshop_desc['fields']]
+            workshops = sf.query(workshops_query2)
             print(json.dumps({
-                "success": False,
-                "error": f"Query failed: {str(e)}",
-                "available_fields": available_fields[:20]  # First 20 fields
+                "success": True,
+                "records": workshops.get('records', []),
+                "totalSize": workshops.get('totalSize', 0),
+                "query": "query2"
             }))
-        except:
-            print(json.dumps({
-                "success": False,
-                "error": f"Query failed: {str(e)}"
-            }))
+        except Exception as e2:
+            # Try to describe the object to see available fields
+            try:
+                workshop_desc = sf.Workshop__c.describe()
+                available_fields = [f['name'] for f in workshop_desc['fields']]
+                print(json.dumps({
+                    "success": False,
+                    "error": f"Both queries failed. Query1: {str(e1)}, Query2: {str(e2)}",
+                    "available_fields": available_fields[:30]
+                }))
+            except:
+                print(json.dumps({
+                    "success": False,
+                    "error": f"Both queries failed. Query1: {str(e1)}, Query2: {str(e2)}"
+                }))
+    
     
 except ImportError:
     print(json.dumps({"error": "simple-salesforce not installed"}))

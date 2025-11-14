@@ -177,6 +177,26 @@ print(json.dumps({
     }
   });
 
+  // Test workshops for a specific program
+  app.get("/api/test-workshops/:programId", async (req, res) => {
+    try {
+      const { programId } = req.params;
+      console.log(`[TEST] Testing workshops for program ${programId}`);
+      
+      const workshops = await salesforceService.programService.getWorkshopsForProgram(programId);
+      
+      res.json({
+        success: true,
+        programId,
+        workshops,
+        count: workshops.length
+      });
+    } catch (error) {
+      console.error('[TEST] Error:', error);
+      res.status(500).json({ success: false, error: String(error) });
+    }
+  });
+
   // ============================================
   // END SIMPLE ENDPOINTS
   // ============================================
