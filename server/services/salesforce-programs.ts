@@ -295,8 +295,18 @@ except Exception as e:
 
     try {
       const result = await this.salesforceService['executePythonScript'](scriptContent);
+      console.log(`[getWorkshopsForProgram] Raw result for ${programId}:`, JSON.stringify(result, null, 2));
+      
       if (result.error) {
         console.error(`Salesforce Workshops query error for Program ${programId}:`, result.error);
+        return [];
+      }
+      
+      if (result.success === false) {
+        console.error(`Salesforce Workshops query failed for Program ${programId}:`, result.error);
+        if (result.available_fields) {
+          console.log(`Available fields:`, result.available_fields);
+        }
         return [];
       }
 

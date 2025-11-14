@@ -112,7 +112,9 @@ export class ProgramSyncService {
     }
 
     // Get workshops for this program
+    console.log(`[SYNC] Fetching workshops for program ${sfProgram.Id} (${sfProgram.Name})`);
     const sfWorkshops = await this.programService.getWorkshopsForProgram(sfProgram.Id);
+    console.log(`[SYNC] Found ${sfWorkshops.length} workshops for program ${sfProgram.Id}`);
 
     // Sync workshops
     const syncedWorkshops = [];

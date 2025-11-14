@@ -154,11 +154,14 @@ print(json.dumps({
       
       for (const sfProgram of sfPrograms) {
         try {
+          console.log(`[SYNC-ALL] Syncing program ${sfProgram.Id} (${sfProgram.Name})`);
           const { program, workshops } = await syncService.syncProgram(sfProgram);
           programsSynced++;
           workshopsSynced += workshops.length;
+          console.log(`[SYNC-ALL] Program ${sfProgram.Id}: synced ${workshops.length} workshops`);
         } catch (error) {
           console.error(`Failed to sync program ${sfProgram.Id}:`, error);
+          console.error(`Error details:`, error);
         }
       }
       
