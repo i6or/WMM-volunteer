@@ -54,7 +54,8 @@ export function ProgramCard({ program }: ProgramCardProps) {
     });
   };
 
-  // Format time from "18:30:00.000Z" to "6:30 PM EST"
+  // Format time from "12:00:00.000Z" to "12:00 PM EST"
+  // Note: Salesforce stores times as local time with Z suffix (not actual UTC)
   const formatTime = (timeStr: string | null) => {
     if (!timeStr) return "";
 
@@ -62,14 +63,10 @@ export function ProgramCard({ program }: ProgramCardProps) {
     const match = timeStr.match(/^(\d{2}):(\d{2})/);
     if (!match) return timeStr;
 
-    let hours = parseInt(match[1], 10);
+    const hours = parseInt(match[1], 10);
     const minutes = match[2];
 
-    // Convert from UTC to EST (subtract 5 hours)
-    hours = hours - 5;
-    if (hours < 0) hours += 24;
-
-    // Convert to 12-hour format
+    // Convert to 12-hour format (no UTC conversion needed)
     const period = hours >= 12 ? 'PM' : 'AM';
     const displayHours = hours % 12 || 12;
 
