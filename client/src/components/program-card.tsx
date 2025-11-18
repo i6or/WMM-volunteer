@@ -16,8 +16,9 @@ export function ProgramCard({ program }: ProgramCardProps) {
   const { toast } = useToast();
 
   // Default spots for coach volunteers
+  // TODO: Replace with actual volunteer signup count when available
   const totalSpots = 20;
-  const filledSpots = program.totalParticipants || 0;
+  const filledSpots = 0; // Will be populated from volunteer signups
   const availableSpots = Math.max(0, totalSpots - filledSpots);
 
   const signupMutation = useMutation({
@@ -99,7 +100,7 @@ export function ProgramCard({ program }: ProgramCardProps) {
   return (
     <Card className="overflow-hidden hover:shadow-lg transition-shadow" data-testid={`card-program-${program.id}`}>
       <CardContent className="p-6">
-        {/* Type badge and date range */}
+        {/* Type badge and Primary Program Partner */}
         <div className="flex items-start justify-between mb-3">
           <div>
             {program.programType && (
@@ -107,8 +108,8 @@ export function ProgramCard({ program }: ProgramCardProps) {
                 {program.programType}
               </Badge>
             )}
-            <p className="text-sm text-muted-foreground" data-testid={`text-date-range-${program.id}`}>
-              {getDateRange()}
+            <p className="text-sm text-muted-foreground" data-testid={`text-partner-${program.id}`}>
+              {program.primaryProgramPartner || "Women's Money Matters"}
             </p>
           </div>
           <Button variant="ghost" size="icon" data-testid={`button-favorite-${program.id}`}>
@@ -121,9 +122,9 @@ export function ProgramCard({ program }: ProgramCardProps) {
           {program.programType || program.name}
         </h3>
 
-        {/* Primary Program Partner */}
-        <p className="text-sm text-muted-foreground mb-4" data-testid={`text-partner-${program.id}`}>
-          {program.primaryProgramPartner || "Women's Money Matters"}
+        {/* Date range */}
+        <p className="text-sm text-muted-foreground mb-4" data-testid={`text-date-range-${program.id}`}>
+          {getDateRange()}
         </p>
 
         {/* Program details */}
