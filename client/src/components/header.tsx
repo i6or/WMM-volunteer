@@ -17,17 +17,26 @@ export function Header() {
           </Link>
           
           <nav className="hidden md:flex items-center space-x-6">
-            <Link 
-              href="/" 
+            <Link
+              href="/coaching-opportunities"
               className={`text-sm transition-colors ${
-                location === "/" ? "text-foreground" : "text-muted-foreground hover:text-foreground"
+                location === "/coaching-opportunities" || location === "/" ? "text-foreground" : "text-muted-foreground hover:text-foreground"
               }`}
-              data-testid="nav-opportunities"
+              data-testid="nav-coaching"
             >
-              Volunteer Opportunities
+              Coaching Opportunities
             </Link>
-            <Link 
-              href="/register" 
+            <Link
+              href="/presenter-opportunities"
+              className={`text-sm transition-colors ${
+                location === "/presenter-opportunities" ? "text-foreground" : "text-muted-foreground hover:text-foreground"
+              }`}
+              data-testid="nav-presenter"
+            >
+              Presenter Opportunities
+            </Link>
+            <Link
+              href="/register"
               className={`text-sm transition-colors ${
                 location === "/register" ? "text-foreground" : "text-muted-foreground hover:text-foreground"
               }`}
@@ -35,8 +44,8 @@ export function Header() {
             >
               Volunteer Registration
             </Link>
-            <Link 
-              href="/admin" 
+            <Link
+              href="/admin"
               className={`text-sm transition-colors ${
                 location === "/admin" ? "text-foreground" : "text-muted-foreground hover:text-foreground"
               }`}
