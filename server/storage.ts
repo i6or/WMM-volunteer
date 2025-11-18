@@ -513,9 +513,60 @@ export class DatabaseStorage implements IStorage {
       conditions.push(eq(opportunities.programId, filters.programId));
     }
 
-    if (filters?.date) {
-      const filterDate = new Date(filters.date);
-      conditions.push(sql`DATE(${opportunities.date}) = ${filterDate.toISOString().split('T')[0]}`);
+    if (filters?.date && filters.date !== 'all') {
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+      switch (filters.date) {
+        case 'this_week': {
+          // Get start of current week (Sunday) and end of week (Saturday)
+          const dayOfWeek = today.getDay();
+          const startOfWeek = new Date(today);
+          startOfWeek.setDate(today.getDate() - dayOfWeek);
+          const endOfWeek = new Date(startOfWeek);
+          endOfWeek.setDate(startOfWeek.getDate() + 6);
+          endOfWeek.setHours(23, 59, 59, 999);
+
+          conditions.push(
+            sql`${opportunities.date} >= ${startOfWeek.toISOString()} AND ${opportunities.date} <= ${endOfWeek.toISOString()}`
+          );
+          break;
+        }
+        case 'this_month': {
+          // Get first and last day of current month
+          const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+          const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+
+          conditions.push(
+            sql`${opportunities.date} >= ${startOfMonth.toISOString()} AND ${opportunities.date} <= ${endOfMonth.toISOString()}`
+          );
+          break;
+        }
+        case 'this_weekend': {
+          // Get upcoming Saturday and Sunday
+          const dayOfWeek = today.getDay();
+          const daysUntilSaturday = (6 - dayOfWeek + 7) % 7;
+          const saturday = new Date(today);
+          saturday.setDate(today.getDate() + (daysUntilSaturday === 0 ? 0 : daysUntilSaturday));
+          const sunday = new Date(saturday);
+          sunday.setDate(saturday.getDate() + 1);
+          sunday.setHours(23, 59, 59, 999);
+
+          conditions.push(
+            sql`${opportunities.date} >= ${saturday.toISOString()} AND ${opportunities.date} <= ${sunday.toISOString()}`
+          );
+          break;
+        }
+        default: {
+          // Treat as exact date match for backwards compatibility
+          const filterDate = new Date(filters.date);
+          conditions.push(sql`DATE(${opportunities.date}) = ${filterDate.toISOString().split('T')[0]}`);
+        }
+      }
+    } else {
+      // Default: Only show opportunities from today onwards (no past opportunities)
+      const now = new Date();
+      conditions.push(sql`${opportunities.date} >= ${now.toISOString()}`);
     }
 
     if (filters?.search) {
@@ -524,9 +575,9 @@ export class DatabaseStorage implements IStorage {
       );
     }
 
-    const query = conditions.length > 0 
-      ? db.select().from(opportunities).where(and(...conditions))
-      : db.select().from(opportunities);
+    const query = conditions.length > 0
+      ? db.select().from(opportunities).where(and(...conditions)).orderBy(opportunities.date)
+      : db.select().from(opportunities).orderBy(opportunities.date);
 
     return await query;
   }
