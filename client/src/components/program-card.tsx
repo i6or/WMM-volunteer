@@ -1,4 +1,4 @@
-import { Calendar, MapPin, Heart, Users, Presentation } from "lucide-react";
+import { Calendar, MapPin, Heart, Users, Presentation, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -126,12 +126,22 @@ export function ProgramCard({ program }: ProgramCardProps) {
 
         {/* Program details */}
         <div className="space-y-2 mb-4">
-          {/* Number of Workshops */}
+          {/* Number of Workshops with Frequency */}
           {program.numberOfWorkshops && (
             <div className="flex items-center text-sm text-muted-foreground">
               <Presentation className="h-4 w-4 mr-2 flex-shrink-0" />
               <span data-testid={`text-workshops-${program.id}`}>
-                {program.numberOfWorkshops} Workshops
+                {program.numberOfWorkshops} {program.workshopFrequency?.toLowerCase() || ''} Workshops
+              </span>
+            </div>
+          )}
+
+          {/* Language */}
+          {program.language && (
+            <div className="flex items-center text-sm text-muted-foreground">
+              <Globe className="h-4 w-4 mr-2 flex-shrink-0" />
+              <span data-testid={`text-language-${program.id}`}>
+                {program.language}
               </span>
             </div>
           )}
