@@ -54,9 +54,9 @@ export class ProgramSyncService {
       workshopFrequency: (sfProgram as any).Workshop_Frequency__c || null,
       numberOfWorkshops: (sfProgram as any).Number_of_Workshops__c || null,
 
-      // Partner & Leader
-      primaryProgramPartner: (sfProgram as any).Primary_Program_Partner__c || null,
-      programLeader: (sfProgram as any).Program_Leader__c || null,
+      // Partner & Leader (Primary_Program_Partner__c and Program_Leader__c need lookup - not in basic query)
+      primaryProgramPartner: null,
+      programLeader: null,
       programLeaderName: (sfProgram as any).Program_Leader_Full_Name__c || null,
 
       // Participants

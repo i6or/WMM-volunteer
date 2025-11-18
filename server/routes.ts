@@ -121,9 +121,9 @@ else:
 
 query = """SELECT Id, Name, Program_Start_Date__c, Program_End_Date__c,
     Status__c, Status_a__c, Type__c, Format__c, Language__c,
-    Workshop_Day__c, Workshop_Time__c, Workshop_Frequency__c, Number_of_Workshops__c,
-    Primary_Program_Partner__c, Program_Leader__c, Program_Leader_Full_Name__c,
-    Total_Participants__c, Zoom_link__c, Program_Schedule_Link__c
+    Workshop_Day__c, Workshop_Time__c, workshop_frequency__c, Number_of_Workshops__c,
+    Program_Leader_Full_Name__c, Total_Participants__c, Zoom_link__c, Program_Schedule_Link__c,
+    Workshop_Start_Date_Time__c
     FROM Program__c LIMIT 100"""
 result = sf.query(query)
 
@@ -839,9 +839,9 @@ else:
 
 query = """SELECT Id, Name, Program_Start_Date__c, Program_End_Date__c,
     Status__c, Status_a__c, Type__c, Format__c, Language__c,
-    Workshop_Day__c, Workshop_Time__c, Workshop_Frequency__c, Number_of_Workshops__c,
-    Primary_Program_Partner__c, Program_Leader__c, Program_Leader_Full_Name__c,
-    Total_Participants__c, Zoom_link__c, Program_Schedule_Link__c
+    Workshop_Day__c, Workshop_Time__c, workshop_frequency__c, Number_of_Workshops__c,
+    Program_Leader_Full_Name__c, Total_Participants__c, Zoom_link__c, Program_Schedule_Link__c,
+    Workshop_Start_Date_Time__c
     FROM Program__c ${whereClause} LIMIT 100"""
 result = sf.query(query)
 
