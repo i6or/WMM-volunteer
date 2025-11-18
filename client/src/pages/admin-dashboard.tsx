@@ -57,46 +57,6 @@ export default function AdminDashboard() {
     setLoading(false);
   };
 
-
-  const syncOpportunities = async () => {
-    setLoading(true);
-    try {
-      const response = await fetch('/api/salesforce/sync', {
-        method: 'POST',
-        credentials: 'include'
-      });
-      const result = await response.json();
-      setSyncResult(result);
-    } catch (error) {
-      setSyncResult({
-        success: false,
-        message: `Network error: ${error}`
-      });
-    }
-    setLoading(false);
-  };
-
-  const seedData = async () => {
-    setLoading(true);
-    try {
-      const response = await fetch('/api/seed', {
-        method: 'POST',
-        credentials: 'include'
-      });
-      const result = await response.json();
-      setSyncResult(result);
-      if (result.success) {
-        alert(`Successfully seeded ${result.opportunitiesCount} opportunities!`);
-      }
-    } catch (error) {
-      setSyncResult({
-        success: false,
-        message: `Network error: ${error}`
-      });
-    }
-    setLoading(false);
-  };
-
   const testSpecificProgram = async () => {
     setLoading(true);
     try {
@@ -963,63 +923,6 @@ export default function AdminDashboard() {
                     )}
                     {!workshopsResult.success && (
                       <p className="text-sm text-red-700">{workshopsResult.message}</p>
-                    )}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Seed Real Data */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Seed Real Program Data</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <p className="text-sm text-muted-foreground">
-                  Load real program data based on SignUpGenius examples (Financial Futures, Life Launch Collective, etc.)
-                </p>
-                <Button 
-                  onClick={seedData} 
-                  disabled={loading}
-                  className="w-full bg-green-600 hover:bg-green-700"
-                >
-                  {loading ? "Seeding..." : "Seed Real Data"}
-                </Button>
-              </CardContent>
-            </Card>
-
-            {/* Sync Opportunities */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Sync Volunteer Opportunities</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <p className="text-sm text-muted-foreground">
-                  Import volunteer shifts from Programs with related Volunteer Jobs in Salesforce (V4S).
-                </p>
-                <Button 
-                  onClick={syncOpportunities} 
-                  disabled={loading || !connectionResult?.success}
-                  data-testid="sync-opportunities-button"
-                >
-                  {loading ? "Syncing..." : "Sync from Salesforce"}
-                </Button>
-                
-                {syncResult && (
-                  <div className={`p-4 rounded-lg ${
-                    syncResult.success ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'
-                  }`}>
-                    <div className="flex items-center gap-2 mb-2">
-                      <Badge variant={syncResult.success ? "default" : "destructive"}>
-                        {syncResult.success ? "Success" : "Failed"}
-                      </Badge>
-                      <span className="font-medium">{syncResult.message}</span>
-                    </div>
-                    
-                    {syncResult.count !== undefined && (
-                      <p className="text-sm text-muted-foreground">
-                        {syncResult.count} opportunities synced from Salesforce
-                      </p>
                     )}
                   </div>
                 )}
