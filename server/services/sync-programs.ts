@@ -15,24 +15,63 @@ export class ProgramSyncService {
    */
   private convertSalesforceProgram(sfProgram: SalesforceProgram): any {
     // Parse dates
-    const startDate = sfProgram.Program_Start_Date__c 
-      ? new Date(sfProgram.Program_Start_Date__c) 
+    const startDate = sfProgram.Program_Start_Date__c
+      ? new Date(sfProgram.Program_Start_Date__c)
       : null;
-    const endDate = sfProgram.Program_End_Date__c 
-      ? new Date(sfProgram.Program_End_Date__c) 
+    const endDate = sfProgram.Program_End_Date__c
+      ? new Date(sfProgram.Program_End_Date__c)
       : null;
+
+    // Map Status__c or Status_a__c to our status
+    const sfStatus = (sfProgram.Status__c || sfProgram.Status_a__c || "").toLowerCase();
+    let status = "active";
+    if (sfStatus.includes("completed") || sfStatus.includes("closed")) {
+      status = "completed";
+    } else if (sfStatus.includes("planned") || sfStatus.includes("upcoming")) {
+      status = "upcoming";
+    } else if (sfStatus.includes("progress") || sfStatus.includes("active")) {
+      status = "active";
+    }
 
     return {
       salesforceId: sfProgram.Id,
       name: sfProgram.Name || "Unnamed Program",
       description: `Program from Salesforce: ${sfProgram.Name}`,
-      duration: sfProgram.Number_of_Workshops__c 
-        ? `${sfProgram.Number_of_Workshops__c} workshops` 
-        : "TBD",
-      ageRange: null, // Not available in Salesforce query
-      status: sfProgram.Status__c?.toLowerCase() === "planned" ? "active" : "active",
+
+      // Program Details
+      status: status,
+      programType: (sfProgram as any).Type__c || null,
+      format: (sfProgram as any).Format__c || null,
+      language: (sfProgram as any).Language__c || null,
+
+      // Dates
       startDate: startDate,
       endDate: endDate,
+
+      // Workshop Schedule
+      workshopDay: (sfProgram as any).Workshop_Day__c || null,
+      workshopTime: (sfProgram as any).Workshop_Time__c || null,
+      workshopFrequency: (sfProgram as any).Workshop_Frequency__c || null,
+      numberOfWorkshops: (sfProgram as any).Number_of_Workshops__c || null,
+
+      // Partner & Leader
+      primaryProgramPartner: (sfProgram as any).Primary_Program_Partner__c || null,
+      programLeader: (sfProgram as any).Program_Leader__c || null,
+      programLeaderName: (sfProgram as any).Program_Leader_Full_Name__c || null,
+
+      // Participants
+      totalParticipants: (sfProgram as any).Total_Participants__c || null,
+
+      // Links
+      zoomLink: (sfProgram as any).Zoom_link__c || null,
+      scheduleLink: (sfProgram as any).Program_Schedule_Link__c || null,
+
+      // Legacy fields
+      duration: (sfProgram as any).Number_of_Workshops__c
+        ? `${(sfProgram as any).Number_of_Workshops__c} workshops`
+        : "TBD",
+      ageRange: null, // Not available in Salesforce
+
       updatedAt: new Date(),
     };
   }

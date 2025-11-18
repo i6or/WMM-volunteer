@@ -40,11 +40,39 @@ export const programs = pgTable("programs", {
   salesforceId: text("salesforce_id").unique(),
   name: text("name").notNull(),
   description: text("description"),
+
+  // Program Details
+  status: text("status").default("active"), // Status__c or Status_a__c
+  programType: text("program_type"), // Type__c
+  format: text("format"), // Format__c (Virtual/In-Person)
+  language: text("language"), // Language__c
+
+  // Dates
+  startDate: timestamp("start_date"), // Program_Start_Date__c
+  endDate: timestamp("end_date"), // Program_End_Date__c
+
+  // Workshop Schedule
+  workshopDay: text("workshop_day"), // Workshop_Day__c (e.g., "Tuesday")
+  workshopTime: text("workshop_time"), // Workshop_Time__c (e.g., "6:30 PM")
+  workshopFrequency: text("workshop_frequency"), // Workshop_Frequency__c (e.g., "Weekly")
+  numberOfWorkshops: integer("number_of_workshops"), // Number_of_Workshops__c
+
+  // Partner & Leader
+  primaryProgramPartner: text("primary_program_partner"), // Primary_Program_Partner__c
+  programLeader: text("program_leader"), // Program_Leader__c (ID)
+  programLeaderName: text("program_leader_name"), // Program_Leader_Full_Name__c
+
+  // Participants
+  totalParticipants: integer("total_participants"), // Total_Participants__c
+
+  // Links
+  zoomLink: text("zoom_link"), // Zoom_link__c
+  scheduleLink: text("schedule_link"), // Program_Schedule_Link__c
+
+  // Legacy fields (keeping for compatibility)
   duration: text("duration"), // e.g., "8-week program"
   ageRange: text("age_range"), // e.g., "ages 22+", "ages 16-22"
-  status: text("status").default("active"),
-  startDate: timestamp("start_date"),
-  endDate: timestamp("end_date"),
+
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
