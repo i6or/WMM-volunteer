@@ -801,65 +801,98 @@ except Exception as e:
       const { currentQuarter, next60Days } = req.body;
       const filterByCurrentQuarter = currentQuarter === true || currentQuarter === 'true' || currentQuarter === '1';
       const filterByNext60Days = next60Days === true || next60Days === 'true' || next60Days === '1';
-      
+
       console.log(`[SYNC] Starting sync - Current Quarter: ${filterByCurrentQuarter}, Next 60 Days: ${filterByNext60Days}`);
-      
-      // Query Salesforce - simplified function now always returns { records, debug }
-      const queryResult = await salesforceService.programService.getPrograms(filterByCurrentQuarter, filterByNext60Days);
-      const sfPrograms = queryResult.records || [];
-      
-      console.log(`[SYNC] Salesforce returned ${sfPrograms.length} programs`);
-      console.log(`[SYNC] Debug:`, queryResult.debug);
-      
+
+      const config = salesforceService.config;
+
+      // Build date filter for SOQL query
+      let whereClause = "";
+      if (filterByNext60Days) {
+        whereClause = "WHERE Program_Start_Date__c >= TODAY AND Program_Start_Date__c <= NEXT_N_DAYS:60";
+      } else if (filterByCurrentQuarter) {
+        whereClause = "WHERE Program_Start_Date__c = THIS_QUARTER";
+      }
+
+      const scriptContent = `
+import sys
+import os
+sys.path.append(os.path.expanduser('~/.pythonlibs'))
+
+from simple_salesforce import Salesforce
+import json
+
+domain = '${config.domain}'
+username = '${config.username}'
+password = '${config.password}'
+security_token = '${config.securityToken}'
+
+if domain not in ['login', 'test'] and '.' not in domain:
+    sf = Salesforce(username=username, password=password, security_token=security_token, instance_url=f"https://{domain}.my.salesforce.com")
+else:
+    sf = Salesforce(username=username, password=password, security_token=security_token, domain=domain)
+
+query = "SELECT Id, Name, Program_Start_Date__c, Program_End_Date__c, Status__c, Status_a__c FROM Program__c ${whereClause} LIMIT 100"
+result = sf.query(query)
+
+print(json.dumps({
+    "success": True,
+    "records": result.get('records', []),
+    "totalSize": result.get('totalSize', 0),
+    "query": query
+}))
+`;
+
+      const pythonResult = await salesforceService['executePythonScript'](scriptContent);
+
+      if (pythonResult.error) {
+        return res.status(500).json({ success: false, error: pythonResult.error });
+      }
+
+      const sfPrograms = pythonResult.records || [];
+      console.log(`[SYNC] Found ${sfPrograms.length} programs in Salesforce`);
+      console.log(`[SYNC] Query used: ${pythonResult.query}`);
+
       if (sfPrograms.length === 0) {
-        // If filters were used and returned 0, try without filters
-        if (filterByCurrentQuarter || filterByNext60Days) {
-          console.log(`[SYNC] Filters returned 0, trying without filters...`);
-          const allResult = await salesforceService.programService.getPrograms(false, false);
-          const allPrograms = allResult.records || [];
-          console.log(`[SYNC] Unfiltered query returned ${allPrograms.length} programs`);
-          
-          if (allPrograms.length > 0) {
-            const syncService = new ProgramSyncService(salesforceService.programService);
-            const syncResult = await syncService.syncAllPrograms(false, false);
-            
-            return res.json({ 
-              success: true,
-              message: `Synced ${syncResult.programsSynced} programs and ${syncResult.workshopsSynced} workshops (used unfiltered query)`,
-              programsSynced: syncResult.programsSynced,
-              workshopsSynced: syncResult.workshopsSynced,
-              programs: syncResult.programs
-            });
-          }
-        }
-        
-        return res.json({ 
+        return res.json({
           success: false,
           message: `No programs found. Query returned 0 programs.`,
           programsSynced: 0,
           workshopsSynced: 0,
-          debug: queryResult.debug
+          debug: { query: pythonResult.query }
         });
       }
-      
-      // Sync the programs we found
+
+      // Sync them using the sync service
       const syncService = new ProgramSyncService(salesforceService.programService);
-      const syncResult = await syncService.syncAllPrograms(filterByNext60Days, filterByCurrentQuarter);
-      
-      console.log(`[SYNC] Completed - ${syncResult.programsSynced} programs, ${syncResult.workshopsSynced} workshops`);
-      
-      res.json({ 
+      let programsSynced = 0;
+      let workshopsSynced = 0;
+
+      for (const sfProgram of sfPrograms) {
+        try {
+          console.log(`[SYNC] Syncing program ${sfProgram.Id} (${sfProgram.Name})`);
+          const { program, workshops } = await syncService.syncProgram(sfProgram);
+          programsSynced++;
+          workshopsSynced += workshops.length;
+          console.log(`[SYNC] Program ${sfProgram.Id}: synced ${workshops.length} workshops`);
+        } catch (error) {
+          console.error(`Failed to sync program ${sfProgram.Id}:`, error);
+        }
+      }
+
+      console.log(`[SYNC] Completed - ${programsSynced} programs, ${workshopsSynced} workshops`);
+
+      res.json({
         success: true,
-        message: `Synced ${syncResult.programsSynced} programs and ${syncResult.workshopsSynced} workshops to database`,
-        programsSynced: syncResult.programsSynced,
-        workshopsSynced: syncResult.workshopsSynced,
-        programs: syncResult.programs
+        message: `Synced ${programsSynced} programs and ${workshopsSynced} workshops to database`,
+        programsSynced,
+        workshopsSynced
       });
     } catch (error) {
       console.error("Failed to sync Programs:", error);
-      res.status(500).json({ 
-        success: false, 
-        message: `Failed to sync Programs: ${error}` 
+      res.status(500).json({
+        success: false,
+        message: `Failed to sync Programs: ${error}`
       });
     }
   });
