@@ -31,7 +31,7 @@ export interface IStorage {
   createProgram(program: InsertProgram): Promise<Program>;
   updateProgram(id: string, program: Partial<Program>): Promise<Program | undefined>;
   deleteProgram(id: string): Promise<boolean>;
-  getAllPrograms(filters?: { status?: string; search?: string }): Promise<Program[]>;
+  getAllPrograms(filters?: { status?: string; search?: string; dateRange?: string }): Promise<Program[]>;
 
   // Workshop operations
   getWorkshop(id: string): Promise<Workshop | undefined>;
@@ -680,7 +680,7 @@ export class DatabaseStorage implements IStorage {
     return (result.rowCount || 0) > 0;
   }
 
-  async getAllPrograms(filters?: { status?: string; search?: string }): Promise<Program[]> {
+  async getAllPrograms(filters?: { status?: string; search?: string; dateRange?: string }): Promise<Program[]> {
     let conditions = [];
 
     if (filters?.status && filters.status !== "all") {
@@ -693,9 +693,49 @@ export class DatabaseStorage implements IStorage {
       );
     }
 
-    const query = conditions.length > 0 
-      ? db.select().from(programs).where(and(...conditions))
-      : db.select().from(programs);
+    // Date range filtering
+    if (filters?.dateRange) {
+      const today = new Date();
+      switch (filters.dateRange) {
+        case 'current_quarter':
+          // Get current quarter start and end dates
+          const quarterMonth = Math.floor(today.getMonth() / 3) * 3;
+          const quarterStart = new Date(today.getFullYear(), quarterMonth, 1);
+          const quarterEnd = new Date(today.getFullYear(), quarterMonth + 3, 0);
+          conditions.push(
+            sql`${programs.startDate} >= ${quarterStart.toISOString()} AND ${programs.startDate} <= ${quarterEnd.toISOString()}`
+          );
+          break;
+        case 'upcoming':
+          // Future programs only
+          conditions.push(sql`${programs.startDate} >= ${today.toISOString()}`);
+          break;
+        case 'all':
+          // No date filter
+          break;
+        default:
+          // Default to current quarter
+          const defQuarterMonth = Math.floor(today.getMonth() / 3) * 3;
+          const defQuarterStart = new Date(today.getFullYear(), defQuarterMonth, 1);
+          const defQuarterEnd = new Date(today.getFullYear(), defQuarterMonth + 3, 0);
+          conditions.push(
+            sql`${programs.startDate} >= ${defQuarterStart.toISOString()} AND ${programs.startDate} <= ${defQuarterEnd.toISOString()}`
+          );
+      }
+    } else {
+      // Default: show current quarter programs
+      const today = new Date();
+      const quarterMonth = Math.floor(today.getMonth() / 3) * 3;
+      const quarterStart = new Date(today.getFullYear(), quarterMonth, 1);
+      const quarterEnd = new Date(today.getFullYear(), quarterMonth + 3, 0);
+      conditions.push(
+        sql`${programs.startDate} >= ${quarterStart.toISOString()} AND ${programs.startDate} <= ${quarterEnd.toISOString()}`
+      );
+    }
+
+    const query = conditions.length > 0
+      ? db.select().from(programs).where(and(...conditions)).orderBy(programs.startDate)
+      : db.select().from(programs).orderBy(programs.startDate);
 
     return await query;
   }

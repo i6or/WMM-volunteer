@@ -1,124 +1,160 @@
-import { Calendar, Clock, Users, MapPin, Video } from "lucide-react";
+import { Calendar, Clock, MapPin, Heart, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { type Program } from "@shared/schema";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 interface ProgramCardProps {
   program: Program;
 }
 
 export function ProgramCard({ program }: ProgramCardProps) {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  // Default spots for coach volunteers
+  const totalSpots = 20;
+  const filledSpots = program.totalParticipants || 0;
+  const availableSpots = Math.max(0, totalSpots - filledSpots);
+
+  const signupMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest("POST", "/api/program-signups", {
+        programId: program.id,
+        role: "coach",
+        status: "confirmed"
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/programs"] });
+      toast({
+        title: "Sign up successful!",
+        description: `You've been registered as a coach for ${program.name}`,
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Sign up failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   const formatDate = (date: Date | string | null) => {
-    if (!date) return "TBD";
+    if (!date) return "";
     return new Date(date).toLocaleDateString('en-US', {
-      month: 'short',
+      month: 'long',
       day: 'numeric',
       year: 'numeric'
     });
   };
 
-  const getStatusColor = (status: string | null) => {
-    switch (status) {
-      case 'active':
+  const getTypeColor = (type: string | null) => {
+    switch (type?.toLowerCase()) {
+      case 'financial futures':
         return 'bg-green-100 text-green-800';
-      case 'upcoming':
+      case 'life launch':
         return 'bg-blue-100 text-blue-800';
-      case 'completed':
-        return 'bg-gray-100 text-gray-800';
       default:
-        return 'bg-green-100 text-green-800';
+        return 'bg-gray-100 text-gray-800';
     }
   };
 
-  const getFormatColor = (format: string | null) => {
-    if (format?.toLowerCase().includes('virtual')) {
-      return 'bg-purple-100 text-purple-800';
+  // Build date range string
+  const getDateRange = () => {
+    if (program.startDate && program.endDate) {
+      return `${formatDate(program.startDate)} - ${formatDate(program.endDate)}`;
+    } else if (program.startDate) {
+      return `Starts ${formatDate(program.startDate)}`;
     }
-    return 'bg-orange-100 text-orange-800';
+    return "Dates TBD";
   };
 
   return (
     <Card className="overflow-hidden hover:shadow-lg transition-shadow" data-testid={`card-program-${program.id}`}>
       <CardContent className="p-6">
-        {/* Header with badges */}
+        {/* Type badge and date range */}
         <div className="flex items-start justify-between mb-3">
-          <div className="flex flex-wrap gap-2">
-            <Badge className={getStatusColor(program.status)} data-testid={`badge-status-${program.id}`}>
-              {program.status || 'Active'}
-            </Badge>
-            {program.format && (
-              <Badge className={getFormatColor(program.format)} data-testid={`badge-format-${program.id}`}>
-                {program.format}
+          <div>
+            {program.programType && (
+              <Badge className={`mb-2 ${getTypeColor(program.programType)}`} data-testid={`badge-type-${program.id}`}>
+                {program.programType}
               </Badge>
             )}
+            <p className="text-sm text-muted-foreground" data-testid={`text-date-range-${program.id}`}>
+              {getDateRange()}
+            </p>
           </div>
+          <Button variant="ghost" size="icon" data-testid={`button-favorite-${program.id}`}>
+            <Heart className="h-4 w-4" />
+          </Button>
         </div>
 
         {/* Program name */}
-        <h3 className="font-semibold text-foreground mb-2 text-lg" data-testid={`text-name-${program.id}`}>
+        <h3 className="font-semibold text-foreground mb-1 text-lg" data-testid={`text-name-${program.id}`}>
           {program.name}
         </h3>
 
-        {/* Partner */}
-        {program.primaryProgramPartner && (
-          <p className="text-sm text-muted-foreground mb-3" data-testid={`text-partner-${program.id}`}>
-            {program.primaryProgramPartner}
-          </p>
-        )}
+        {/* Primary Program Partner */}
+        <p className="text-sm text-muted-foreground mb-4" data-testid={`text-partner-${program.id}`}>
+          {program.primaryProgramPartner || "Women's Money Matters"}
+        </p>
 
         {/* Program details */}
         <div className="space-y-2 mb-4">
-          {/* Start Date */}
-          {program.startDate && (
+          {/* Workshop Day and Frequency */}
+          {(program.workshopDay || program.workshopFrequency) && (
             <div className="flex items-center text-sm text-muted-foreground">
               <Calendar className="h-4 w-4 mr-2 flex-shrink-0" />
-              <span data-testid={`text-start-date-${program.id}`}>
-                Starts {formatDate(program.startDate)}
+              <span data-testid={`text-schedule-${program.id}`}>
+                {program.workshopDay && `${program.workshopDay}s`}
+                {program.workshopDay && program.workshopFrequency && ' - '}
+                {program.workshopFrequency}
               </span>
             </div>
           )}
 
-          {/* Workshop Schedule */}
-          {(program.workshopDay || program.workshopTime) && (
+          {/* Workshop Time */}
+          {program.workshopTime && (
             <div className="flex items-center text-sm text-muted-foreground">
               <Clock className="h-4 w-4 mr-2 flex-shrink-0" />
-              <span data-testid={`text-schedule-${program.id}`}>
-                {program.workshopDay && `${program.workshopDay}s`}
-                {program.workshopDay && program.workshopTime && ' at '}
+              <span data-testid={`text-time-${program.id}`}>
                 {program.workshopTime}
               </span>
             </div>
           )}
 
-          {/* Number of Workshops */}
-          {program.numberOfWorkshops && (
+          {/* Format (location) */}
+          {program.format && (
             <div className="flex items-center text-sm text-muted-foreground">
-              <Users className="h-4 w-4 mr-2 flex-shrink-0" />
-              <span data-testid={`text-workshops-${program.id}`}>
-                {program.numberOfWorkshops} workshops
+              <MapPin className="h-4 w-4 mr-2 flex-shrink-0" />
+              <span data-testid={`text-format-${program.id}`}>
+                {program.format}
               </span>
-            </div>
-          )}
-
-          {/* Format indicator */}
-          {program.format?.toLowerCase().includes('virtual') && program.zoomLink && (
-            <div className="flex items-center text-sm text-muted-foreground">
-              <Video className="h-4 w-4 mr-2 flex-shrink-0" />
-              <span>Virtual via Zoom</span>
             </div>
           )}
         </div>
 
-        {/* Action button */}
-        <div className="flex items-center justify-end">
+        {/* Spots and Action button */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <Users className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm text-muted-foreground" data-testid={`text-spots-${program.id}`}>
+              {filledSpots}/{totalSpots} spots filled
+            </span>
+          </div>
           <Button
-            className="bg-primary text-primary-foreground hover:bg-primary/90"
+            className="bg-green-500 text-white hover:bg-green-600"
             size="sm"
-            asChild
-            data-testid={`button-view-${program.id}`}
+            onClick={() => signupMutation.mutate()}
+            disabled={signupMutation.isPending || availableSpots <= 0}
+            data-testid={`button-signup-${program.id}`}
           >
-            <a href={`/programs/${program.id}`}>View Details</a>
+            {signupMutation.isPending ? "Signing up..." : "Sign Up"}
           </Button>
         </div>
       </CardContent>

@@ -13,15 +13,17 @@ import { type Program } from "@shared/schema";
 export default function Home() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+  const [dateRangeFilter, setDateRangeFilter] = useState("current_quarter");
 
   // Fetch programs
   const { data: programs, isLoading } = useQuery({
-    queryKey: ["/api/programs", { search: searchQuery, status: statusFilter }],
+    queryKey: ["/api/programs", { search: searchQuery, status: statusFilter, dateRange: dateRangeFilter }],
     queryFn: async ({ queryKey }) => {
       const [, filters] = queryKey as [string, any];
       const params = new URLSearchParams();
       if (filters.search) params.set('search', filters.search);
       if (filters.status && filters.status !== 'all') params.set('status', filters.status);
+      if (filters.dateRange) params.set('dateRange', filters.dateRange);
 
       const response = await fetch(`/api/programs?${params.toString()}`, {
         credentials: 'include'
@@ -127,12 +129,23 @@ export default function Home() {
           <CardContent className="p-6">
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
               <div className="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-4">
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-48" data-testid="select-status-filter">
-                    <SelectValue placeholder="All Programs" />
+                <Select value={dateRangeFilter} onValueChange={setDateRangeFilter}>
+                  <SelectTrigger className="w-48" data-testid="select-date-range-filter">
+                    <SelectValue placeholder="Current Quarter" />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="current_quarter">Current Quarter</SelectItem>
+                    <SelectItem value="upcoming">Upcoming</SelectItem>
                     <SelectItem value="all">All Programs</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="w-48" data-testid="select-status-filter">
+                    <SelectValue placeholder="All Statuses" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Statuses</SelectItem>
                     <SelectItem value="active">Active</SelectItem>
                     <SelectItem value="upcoming">Upcoming</SelectItem>
                     <SelectItem value="completed">Completed</SelectItem>
@@ -178,6 +191,7 @@ export default function Home() {
                 onClick={() => {
                   setSearchQuery("");
                   setStatusFilter("all");
+                  setDateRangeFilter("current_quarter");
                 }}
                 data-testid="button-clear-filters"
               >
