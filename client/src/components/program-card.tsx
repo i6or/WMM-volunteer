@@ -53,6 +53,28 @@ export function ProgramCard({ program }: ProgramCardProps) {
     });
   };
 
+  // Format time from "18:30:00.000Z" to "6:30 PM EST"
+  const formatTime = (timeStr: string | null) => {
+    if (!timeStr) return "";
+
+    // Parse the time string (format: HH:MM:SS.sssZ)
+    const match = timeStr.match(/^(\d{2}):(\d{2})/);
+    if (!match) return timeStr;
+
+    let hours = parseInt(match[1], 10);
+    const minutes = match[2];
+
+    // Convert from UTC to EST (subtract 5 hours)
+    hours = hours - 5;
+    if (hours < 0) hours += 24;
+
+    // Convert to 12-hour format
+    const period = hours >= 12 ? 'PM' : 'AM';
+    const displayHours = hours % 12 || 12;
+
+    return `${displayHours}:${minutes} ${period} EST`;
+  };
+
   const getTypeColor = (type: string | null) => {
     switch (type?.toLowerCase()) {
       case 'financial futures':
@@ -94,9 +116,9 @@ export function ProgramCard({ program }: ProgramCardProps) {
           </Button>
         </div>
 
-        {/* Program name */}
+        {/* Program Type as title */}
         <h3 className="font-semibold text-foreground mb-1 text-lg" data-testid={`text-name-${program.id}`}>
-          {program.name}
+          {program.programType || program.name}
         </h3>
 
         {/* Primary Program Partner */}
@@ -123,7 +145,7 @@ export function ProgramCard({ program }: ProgramCardProps) {
             <div className="flex items-center text-sm text-muted-foreground">
               <Clock className="h-4 w-4 mr-2 flex-shrink-0" />
               <span data-testid={`text-time-${program.id}`}>
-                {program.workshopTime}
+                {formatTime(program.workshopTime)}
               </span>
             </div>
           )}
