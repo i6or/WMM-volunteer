@@ -1012,6 +1012,27 @@ print(json.dumps({
     }
   });
 
+  // Debug endpoint to test getAllWorkshops
+  app.get("/api/salesforce/test-get-all-workshops", async (req, res) => {
+    try {
+      console.log(`[TEST-GET-ALL-WORKSHOPS] Starting`);
+      const sfWorkshops = await salesforceService.programService.getAllWorkshops();
+      console.log(`[TEST-GET-ALL-WORKSHOPS] Returned ${sfWorkshops.length} workshops`);
+
+      res.json({
+        success: sfWorkshops.length > 0,
+        count: sfWorkshops.length,
+        workshops: sfWorkshops.slice(0, 3), // First 3
+        message: sfWorkshops.length === 0 ? "getAllWorkshops returned empty array - check server logs" : `Found ${sfWorkshops.length} workshops`
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        error: String(error)
+      });
+    }
+  });
+
   // Sync All Workshops from Salesforce to Database
   app.post("/api/salesforce/sync-workshops", async (req, res) => {
     try {
@@ -1028,10 +1049,10 @@ print(json.dumps({
       if (sfWorkshops.length === 0) {
         return res.json({
           success: true,
-          message: `No workshops found in Salesforce. The Workshop__c object may be empty or the query failed.`,
+          message: `No workshops found in Salesforce. getAllWorkshops() returned empty array. Check server logs for errors.`,
           workshopsSynced: 0,
           debug: {
-            note: "Check server logs for query errors"
+            note: "The method returned [] - check [getAllWorkshops] logs for query errors"
           }
         });
       }

@@ -664,6 +664,25 @@ export default function AdminDashboard() {
                   >
                     {loading ? "Testing..." : "Test Workshop Query"}
                   </Button>
+                  <Button
+                    onClick={async () => {
+                      setLoading(true);
+                      try {
+                        const response = await fetch('/api/salesforce/test-get-all-workshops', { credentials: 'include' });
+                        const result = await response.json();
+                        console.log('getAllWorkshops test:', result);
+                        alert(`getAllWorkshops() Test:\n\nCount: ${result.count}\nMessage: ${result.message}\n\nSample:\n${JSON.stringify(result.workshops, null, 2)}`);
+                      } catch (error) {
+                        alert(`Error: ${error}`);
+                      }
+                      setLoading(false);
+                    }}
+                    disabled={loading || !connectionResult?.success}
+                    variant="outline"
+                    className="w-full bg-red-600 hover:bg-red-700 text-white"
+                  >
+                    {loading ? "Testing..." : "Test getAllWorkshops()"}
+                  </Button>
                 </div>
                 <div className="space-y-2">
                   <div className="flex gap-2">
