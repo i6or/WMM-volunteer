@@ -400,23 +400,33 @@ try:
     """
 
     try:
+        print(f"DEBUG: Attempting query1 with ORDER BY", file=sys.stderr)
         workshops = sf.query(workshops_query1)
+        totalSize = workshops.get('totalSize', 0)
+        records = workshops.get('records', [])
+        print(f"DEBUG: Query1 succeeded. TotalSize: {totalSize}, Records: {len(records)}", file=sys.stderr)
         print(json.dumps({
             "success": True,
-            "records": workshops.get('records', []),
-            "totalSize": workshops.get('totalSize', 0),
+            "records": records,
+            "totalSize": totalSize,
             "query": "query1_with_order"
         }))
     except Exception as e1:
+        print(f"DEBUG: Query1 failed: {str(e1)}", file=sys.stderr)
         try:
+            print(f"DEBUG: Attempting query2 without ORDER BY", file=sys.stderr)
             workshops = sf.query(workshops_query2)
+            totalSize = workshops.get('totalSize', 0)
+            records = workshops.get('records', [])
+            print(f"DEBUG: Query2 succeeded. TotalSize: {totalSize}, Records: {len(records)}", file=sys.stderr)
             print(json.dumps({
                 "success": True,
-                "records": workshops.get('records', []),
-                "totalSize": workshops.get('totalSize', 0),
+                "records": records,
+                "totalSize": totalSize,
                 "query": "query2_no_order"
             }))
         except Exception as e2:
+            print(f"DEBUG: Query2 also failed: {str(e2)}", file=sys.stderr)
             print(json.dumps({
                 "success": False,
                 "error": f"Both queries failed. Query1: {str(e1)}, Query2: {str(e2)}"
@@ -432,6 +442,11 @@ except Exception as e:
       const result = await this.salesforceService['executePythonScript'](scriptContent);
       console.log(`[getAllWorkshops] Raw result:`, JSON.stringify(result, null, 2));
 
+      // Log stderr if present
+      if (result.stderr) {
+        console.log(`[getAllWorkshops] Python stderr:`, result.stderr);
+      }
+
       if (result.error) {
         console.error('Salesforce All Workshops query error:', result.error);
         return [];
@@ -444,9 +459,17 @@ except Exception as e:
 
       const records = result.records || [];
       console.log(`[getAllWorkshops] Returning ${records.length} workshops`);
+
+      if (records.length > 0) {
+        console.log(`[getAllWorkshops] First workshop:`, JSON.stringify(records[0], null, 2));
+      } else {
+        console.log(`[getAllWorkshops] WARNING: Query succeeded but returned 0 records. Result:`, JSON.stringify(result, null, 2));
+      }
+
       return records;
     } catch (error) {
       console.error('Failed to query all Workshops:', error);
+      console.error('Error stack:', error instanceof Error ? error.stack : String(error));
       return [];
     }
   }
