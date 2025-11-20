@@ -378,12 +378,15 @@ try:
         )
 
     # Query all Workshops - using only fields that exist
+    # Filter: Last quarter through next 2 quarters (3 quarters total)
     workshops_query1 = """
         SELECT Id, Name, Program__c,
                Date_Time__c, Presenter__c, Site_Name__c
         FROM Workshop__c
+        WHERE Date_Time__c >= LAST_QUARTER
+          AND Date_Time__c <= NEXT_N_QUARTERS:2
         ORDER BY Date_Time__c DESC NULLS LAST
-        LIMIT 500
+        LIMIT 1000
     """
 
     # Alternative: try without ORDER BY
@@ -391,7 +394,9 @@ try:
         SELECT Id, Name, Program__c,
                Date_Time__c, Presenter__c, Site_Name__c
         FROM Workshop__c
-        LIMIT 500
+        WHERE Date_Time__c >= LAST_QUARTER
+          AND Date_Time__c <= NEXT_N_QUARTERS:2
+        LIMIT 1000
     """
 
     try:
