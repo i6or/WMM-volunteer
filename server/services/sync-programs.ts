@@ -83,18 +83,13 @@ export class ProgramSyncService {
     sfWorkshop: SalesforceWorkshop,
     programId: string
   ): any {
-    // Parse date - prefer Workshop_Date__c, fall back to Date_Time__c
+    // Parse date from Date_Time__c (only field available)
     let workshopDate = null;
-    if (sfWorkshop.Workshop_Date__c) {
-      workshopDate = new Date(sfWorkshop.Workshop_Date__c);
-    } else if (sfWorkshop.Date_Time__c) {
-      workshopDate = new Date(sfWorkshop.Date_Time__c);
-    }
-
-    // Parse time from Date_Time__c if available
     let startTime = "9:00 AM";
+
     if (sfWorkshop.Date_Time__c) {
       const dateTime = new Date(sfWorkshop.Date_Time__c);
+      workshopDate = dateTime;
       startTime = dateTime.toLocaleTimeString('en-US', {
         hour: '2-digit',
         minute: '2-digit',
@@ -102,32 +97,20 @@ export class ProgramSyncService {
       });
     }
 
-    // Build title with topic if available
-    const workshopName = sfWorkshop.Workshop_Name__c || sfWorkshop.Name || "Unnamed Workshop";
-    const title = sfWorkshop.Workshop_Topic__c
-      ? `${workshopName} - ${sfWorkshop.Workshop_Topic__c}`
-      : workshopName;
-
-    // Build description with additional info
-    const descriptionParts = [`Workshop: ${sfWorkshop.Name}`];
-    if (sfWorkshop.Workshop_Topic__c) {
-      descriptionParts.push(`Topic: ${sfWorkshop.Workshop_Topic__c}`);
-    }
-    if (sfWorkshop.Format__c) {
-      descriptionParts.push(`Format: ${sfWorkshop.Format__c}`);
-    }
+    // Use Name field directly (Workshop_Name__c doesn't exist)
+    const workshopName = sfWorkshop.Name || "Unnamed Workshop";
 
     return {
       salesforceId: sfWorkshop.Id,
       programId: programId,
       name: workshopName,
-      title: title, // Legacy field for compatibility
-      topic: sfWorkshop.Workshop_Topic__c || null,
-      description: descriptionParts.join('\n'),
-      date: workshopDate || new Date(), // Required field - use current date if not available
+      title: workshopName, // Same as name since no topic field
+      topic: null, // Workshop_Topic__c doesn't exist
+      description: `Workshop: ${workshopName}`,
+      date: workshopDate || new Date(),
       startTime: startTime,
-      endTime: "5:00 PM", // Default - not available in Salesforce
-      location: sfWorkshop.Site_Name__c || sfWorkshop.Format__c || null,
+      endTime: "5:00 PM", // Default - not available
+      location: sfWorkshop.Site_Name__c || null,
       maxParticipants: null,
       currentParticipants: 0,
       updatedAt: new Date(),

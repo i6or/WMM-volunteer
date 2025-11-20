@@ -989,18 +989,13 @@ print(json.dumps({
 
       for (const sfWorkshop of sfWorkshops) {
         try {
-          // Parse date - prefer Workshop_Date__c, fall back to Date_Time__c
+          // Parse date from Date_Time__c (only date field available)
           let workshopDate = null;
-          if (sfWorkshop.Workshop_Date__c) {
-            workshopDate = new Date(sfWorkshop.Workshop_Date__c);
-          } else if (sfWorkshop.Date_Time__c) {
-            workshopDate = new Date(sfWorkshop.Date_Time__c);
-          }
-
-          // Parse time from Date_Time__c if available
           let startTime = "9:00 AM";
+
           if (sfWorkshop.Date_Time__c) {
             const dateTime = new Date(sfWorkshop.Date_Time__c);
+            workshopDate = dateTime;
             startTime = dateTime.toLocaleTimeString('en-US', {
               hour: '2-digit',
               minute: '2-digit',
@@ -1008,22 +1003,19 @@ print(json.dumps({
             });
           }
 
-          const workshopName = sfWorkshop.Workshop_Name__c || sfWorkshop.Name || "Unnamed Workshop";
-          const title = sfWorkshop.Workshop_Topic__c
-            ? `${workshopName} - ${sfWorkshop.Workshop_Topic__c}`
-            : workshopName;
+          const workshopName = sfWorkshop.Name || "Unnamed Workshop";
 
           const workshopData = {
             salesforceId: sfWorkshop.Id,
             programId: sfWorkshop.Program__c || null,
             name: workshopName,
-            title: title,
-            topic: sfWorkshop.Workshop_Topic__c || null,
-            description: `Workshop: ${sfWorkshop.Name}`,
+            title: workshopName,
+            topic: null,
+            description: `Workshop: ${workshopName}`,
             date: workshopDate || new Date(),
             startTime: startTime,
             endTime: "5:00 PM",
-            location: sfWorkshop.Site_Name__c || sfWorkshop.Format__c || null,
+            location: sfWorkshop.Site_Name__c || null,
             maxParticipants: null,
             currentParticipants: 0,
             updatedAt: new Date(),

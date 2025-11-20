@@ -28,13 +28,8 @@ export interface SalesforceWorkshop {
   Name: string;
   Program__c: string;
   Date_Time__c?: string;
-  Workshop_Date__c?: string;
   Presenter__c?: string;
-  Workshop_Name__c?: string;
-  Workshop_Topic__c?: string;
   Site_Name__c?: string;
-  Format__c?: string;
-  Zoom_Link__c?: string;
 }
 
 export class SalesforceProgramService {
@@ -256,23 +251,19 @@ try:
         )
     
     # Query Workshops for this Program
-    # Using correct field names from Workshop__c object
+    # Using only fields that actually exist in Workshop__c
     workshops_query1 = f"""
         SELECT Id, Name, Program__c,
-               Date_Time__c, Workshop_Date__c,
-               Presenter__c, Workshop_Name__c, Workshop_Topic__c,
-               Site_Name__c, Format__c, Zoom_Link__c
+               Date_Time__c, Presenter__c, Site_Name__c
         FROM Workshop__c
         WHERE Program__c = '{programId}'
-        ORDER BY Workshop_Date__c ASC NULLS LAST
+        ORDER BY Date_Time__c DESC NULLS LAST
     """
 
-    # Alternative: try without ORDER BY in case Workshop_Date__c is null
+    # Alternative: try without ORDER BY
     workshops_query2 = f"""
         SELECT Id, Name, Program__c,
-               Date_Time__c, Workshop_Date__c,
-               Presenter__c, Workshop_Name__c, Workshop_Topic__c,
-               Site_Name__c, Format__c, Zoom_Link__c
+               Date_Time__c, Presenter__c, Site_Name__c
         FROM Workshop__c
         WHERE Program__c = '{programId}'
     """
@@ -386,23 +377,19 @@ try:
             domain=domain
         )
 
-    # Query all Workshops - try with ORDER BY first
+    # Query all Workshops - using only fields that exist
     workshops_query1 = """
         SELECT Id, Name, Program__c,
-               Date_Time__c, Workshop_Date__c,
-               Presenter__c, Workshop_Name__c, Workshop_Topic__c,
-               Site_Name__c, Format__c, Zoom_Link__c
+               Date_Time__c, Presenter__c, Site_Name__c
         FROM Workshop__c
-        ORDER BY Workshop_Date__c ASC NULLS LAST
+        ORDER BY Date_Time__c DESC NULLS LAST
         LIMIT 500
     """
 
     # Alternative: try without ORDER BY
     workshops_query2 = """
         SELECT Id, Name, Program__c,
-               Date_Time__c, Workshop_Date__c,
-               Presenter__c, Workshop_Name__c, Workshop_Topic__c,
-               Site_Name__c, Format__c, Zoom_Link__c
+               Date_Time__c, Presenter__c, Site_Name__c
         FROM Workshop__c
         LIMIT 500
     """
