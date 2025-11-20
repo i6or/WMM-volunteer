@@ -80,37 +80,58 @@ export class ProgramSyncService {
    * Convert Salesforce Workshop to database Workshop format
    */
   private convertSalesforceWorkshop(
-    sfWorkshop: SalesforceWorkshop, 
+    sfWorkshop: SalesforceWorkshop,
     programId: string
   ): any {
-    // Parse date/time
-    const dateTime = sfWorkshop.Date_Time__c 
-      ? new Date(sfWorkshop.Date_Time__c) 
-      : null;
+    // Parse date - prefer Date__c, fall back to Workshop_Date__c or Date_Time__c
+    let workshopDate = null;
+    if (sfWorkshop.Date__c) {
+      workshopDate = new Date(sfWorkshop.Date__c);
+    } else if (sfWorkshop.Workshop_Date__c) {
+      workshopDate = new Date(sfWorkshop.Workshop_Date__c);
+    } else if (sfWorkshop.Date_Time__c) {
+      workshopDate = new Date(sfWorkshop.Date_Time__c);
+    }
+
+    // Parse time from Date_Time__c if available
+    let startTime = "9:00 AM";
+    if (sfWorkshop.Date_Time__c) {
+      const dateTime = new Date(sfWorkshop.Date_Time__c);
+      startTime = dateTime.toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
+      });
+    }
+
+    // Build title with topic if available
+    const workshopName = sfWorkshop.Workshop_Name__c || sfWorkshop.Name || "Unnamed Workshop";
+    const title = sfWorkshop.Workshop_Topic__c
+      ? `${workshopName} - ${sfWorkshop.Workshop_Topic__c}`
+      : workshopName;
+
+    // Build description with additional info
+    const descriptionParts = [`Workshop: ${sfWorkshop.Name}`];
+    if (sfWorkshop.Workshop_Topic__c) {
+      descriptionParts.push(`Topic: ${sfWorkshop.Workshop_Topic__c}`);
+    }
+    if (sfWorkshop.Format__c) {
+      descriptionParts.push(`Format: ${sfWorkshop.Format__c}`);
+    }
 
     return {
       salesforceId: sfWorkshop.Id,
       programId: programId,
-      title: sfWorkshop.Workshop_Name__c || sfWorkshop.Name || "Unnamed Workshop",
-      description: `Workshop: ${sfWorkshop.Name}`,
-      date: dateTime || new Date(), // Required field - use current date if not available
-      startTime: dateTime 
-        ? dateTime.toLocaleTimeString('en-US', { 
-            hour: '2-digit', 
-            minute: '2-digit',
-            hour12: true 
-          })
-        : "9:00 AM", // Required field - provide default
-      endTime: dateTime && sfWorkshop.End_Time__c
-        ? new Date(sfWorkshop.End_Time__c).toLocaleTimeString('en-US', {
-            hour: '2-digit',
-            minute: '2-digit',
-            hour12: true
-          })
-        : "5:00 PM", // Required field - provide default
-      location: null, // Not available in Salesforce query
+      name: workshopName,
+      title: title, // Legacy field for compatibility
+      topic: sfWorkshop.Workshop_Topic__c || null,
+      description: descriptionParts.join('\n'),
+      date: workshopDate || new Date(), // Required field - use current date if not available
+      startTime: startTime,
+      endTime: "5:00 PM", // Default - not available in Salesforce
+      location: sfWorkshop.Site_Name__c || sfWorkshop.Format__c || null,
       maxParticipants: null,
-      currentParticipants: sfWorkshop.Attendee_Count__c || 0,
+      currentParticipants: 0,
       updatedAt: new Date(),
     };
   }

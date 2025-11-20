@@ -4,8 +4,8 @@ import { storage } from "./storage";
 import { salesforceService } from "./services/salesforce";
 import { ProgramSyncService } from "./services/sync-programs";
 import { db } from "./db";
-import { sql } from "drizzle-orm";
-import { insertVolunteerSchema, insertOpportunitySchema, insertVolunteerSignupSchema, insertProgramSchema, insertWorkshopSchema, insertParticipantSchema, insertParticipantWorkshopSchema } from "@shared/schema";
+import { sql, eq } from "drizzle-orm";
+import { insertVolunteerSchema, insertOpportunitySchema, insertVolunteerSignupSchema, insertProgramSchema, insertWorkshopSchema, insertParticipantSchema, insertParticipantWorkshopSchema, workshops } from "@shared/schema";
 import { z } from "zod";
 
 const volunteerQuerySchema = z.object({
@@ -904,6 +904,114 @@ print(json.dumps({
       res.status(500).json({
         success: false,
         message: `Failed to sync Programs: ${error}`
+      });
+    }
+  });
+
+  // Sync All Workshops from Salesforce to Database
+  app.post("/api/salesforce/sync-workshops", async (req, res) => {
+    try {
+      console.log(`[SYNC-WORKSHOPS] Starting workshop sync`);
+
+      // Get all workshops from Salesforce
+      const sfWorkshops = await salesforceService.programService.getAllWorkshops();
+      console.log(`[SYNC-WORKSHOPS] Found ${sfWorkshops.length} workshops in Salesforce`);
+
+      if (sfWorkshops.length === 0) {
+        return res.json({
+          success: false,
+          message: `No workshops found in Salesforce.`,
+          workshopsSynced: 0
+        });
+      }
+
+      // Sync each workshop to database
+      let workshopsSynced = 0;
+      const { randomUUID } = await import("crypto");
+
+      for (const sfWorkshop of sfWorkshops) {
+        try {
+          // Parse date - prefer Date__c, fall back to Workshop_Date__c or Date_Time__c
+          let workshopDate = null;
+          if (sfWorkshop.Date__c) {
+            workshopDate = new Date(sfWorkshop.Date__c);
+          } else if (sfWorkshop.Workshop_Date__c) {
+            workshopDate = new Date(sfWorkshop.Workshop_Date__c);
+          } else if (sfWorkshop.Date_Time__c) {
+            workshopDate = new Date(sfWorkshop.Date_Time__c);
+          }
+
+          // Parse time from Date_Time__c if available
+          let startTime = "9:00 AM";
+          if (sfWorkshop.Date_Time__c) {
+            const dateTime = new Date(sfWorkshop.Date_Time__c);
+            startTime = dateTime.toLocaleTimeString('en-US', {
+              hour: '2-digit',
+              minute: '2-digit',
+              hour12: true
+            });
+          }
+
+          const workshopName = sfWorkshop.Workshop_Name__c || sfWorkshop.Name || "Unnamed Workshop";
+          const title = sfWorkshop.Workshop_Topic__c
+            ? `${workshopName} - ${sfWorkshop.Workshop_Topic__c}`
+            : workshopName;
+
+          const workshopData = {
+            salesforceId: sfWorkshop.Id,
+            programId: sfWorkshop.Program__c || null,
+            name: workshopName,
+            title: title,
+            topic: sfWorkshop.Workshop_Topic__c || null,
+            description: `Workshop: ${sfWorkshop.Name}`,
+            date: workshopDate || new Date(),
+            startTime: startTime,
+            endTime: "5:00 PM",
+            location: sfWorkshop.Site_Name__c || sfWorkshop.Format__c || null,
+            maxParticipants: null,
+            currentParticipants: 0,
+            updatedAt: new Date(),
+          };
+
+          // Check if workshop exists
+          const [existingWorkshop] = await db
+            .select()
+            .from(workshops)
+            .where(eq(workshops.salesforceId, sfWorkshop.Id))
+            .limit(1);
+
+          if (existingWorkshop) {
+            await db
+              .update(workshops)
+              .set(workshopData)
+              .where(eq(workshops.id, existingWorkshop.id));
+          } else {
+            await db
+              .insert(workshops)
+              .values({
+                ...workshopData,
+                id: randomUUID(),
+                createdAt: new Date(),
+              });
+          }
+          workshopsSynced++;
+        } catch (error) {
+          console.error(`Failed to sync workshop ${sfWorkshop.Id}:`, error);
+        }
+      }
+
+      console.log(`[SYNC-WORKSHOPS] Completed - ${workshopsSynced} workshops synced`);
+
+      res.json({
+        success: true,
+        message: `Synced ${workshopsSynced} workshops to database`,
+        workshopsSynced
+      });
+    } catch (error) {
+      console.error("Failed to sync Workshops:", error);
+      res.status(500).json({
+        success: false,
+        message: `Failed to sync Workshops: ${error}`
       });
     }
   });

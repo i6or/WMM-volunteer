@@ -81,7 +81,9 @@ export const workshops = pgTable("workshops", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   salesforceId: text("salesforce_id").unique(),
   programId: varchar("program_id").references(() => programs.id),
-  title: text("title").notNull(),
+  name: text("name").notNull(),
+  title: text("title"), // Legacy field, kept for compatibility
+  topic: text("topic"),
   description: text("description"),
   date: timestamp("date").notNull(),
   startTime: text("start_time").notNull(),

@@ -217,7 +217,7 @@ export default function AdminDashboard() {
       } else if (filterType === 'next60Days') {
         body.next60Days = true;
       }
-      
+
       const response = await fetch('/api/salesforce/sync-programs', {
         method: 'POST',
         headers: {
@@ -230,6 +230,27 @@ export default function AdminDashboard() {
       setSyncResult(result);
       if (result.success) {
         alert(`Successfully synced ${result.programsSynced} programs and ${result.workshopsSynced} workshops to database!`);
+      }
+    } catch (error) {
+      setSyncResult({
+        success: false,
+        message: `Network error: ${error}`
+      });
+    }
+    setLoading(false);
+  };
+
+  const syncAllWorkshops = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch('/api/salesforce/sync-workshops', {
+        method: 'POST',
+        credentials: 'include'
+      });
+      const result = await response.json();
+      setSyncResult(result);
+      if (result.success) {
+        alert(`Successfully synced ${result.workshopsSynced} workshops to database!`);
       }
     } catch (error) {
       setSyncResult({
@@ -673,7 +694,7 @@ export default function AdminDashboard() {
                     Sync to Neon Database
                   </p>
                   <div className="flex gap-2">
-                    <Button 
+                    <Button
                       onClick={async () => {
                         setLoading(true);
                         try {
@@ -697,27 +718,36 @@ export default function AdminDashboard() {
                     >
                       {loading ? "Syncing..." : "Sync All (Simple)"}
                     </Button>
-                    <Button 
-                      onClick={() => syncProgramsToDatabase()} 
+                    <Button
+                      onClick={() => syncProgramsToDatabase()}
                       disabled={loading || !connectionResult?.success}
                       variant="outline"
                       className="flex-1"
                     >
                       {loading ? "Syncing..." : "Sync All Programs (Old)"}
                     </Button>
-                    <Button 
-                      onClick={() => syncProgramsToDatabase('currentQuarter')} 
+                    <Button
+                      onClick={() => syncProgramsToDatabase('currentQuarter')}
                       disabled={loading || !connectionResult?.success}
                       className="flex-1 bg-green-600 hover:bg-green-700"
                     >
                       {loading ? "Syncing..." : "Sync Current Quarter"}
                     </Button>
-                    <Button 
-                      onClick={() => syncProgramsToDatabase('next60Days')} 
+                    <Button
+                      onClick={() => syncProgramsToDatabase('next60Days')}
                       disabled={loading || !connectionResult?.success}
                       className="flex-1 bg-blue-600 hover:bg-blue-700"
                     >
                       {loading ? "Syncing..." : "Sync Next 60 Days"}
+                    </Button>
+                  </div>
+                  <div className="flex gap-2 mt-2">
+                    <Button
+                      onClick={syncAllWorkshops}
+                      disabled={loading || !connectionResult?.success}
+                      className="flex-1 bg-purple-600 hover:bg-purple-700"
+                    >
+                      {loading ? "Syncing..." : "Sync All Workshops Only"}
                     </Button>
                   </div>
                   {syncResult && (

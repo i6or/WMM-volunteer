@@ -28,9 +28,14 @@ export interface SalesforceWorkshop {
   Name: string;
   Program__c: string;
   Date_Time__c?: string;
+  Date__c?: string;
+  Workshop_Date__c?: string;
   Presenter__c?: string;
-  Attendee_Count__c?: number;
   Workshop_Name__c?: string;
+  Workshop_Topic__c?: string;
+  Site_Name__c?: string;
+  Format__c?: string;
+  Zoom_Link__c?: string;
 }
 
 export class SalesforceProgramService {
@@ -252,21 +257,23 @@ try:
         )
     
     # Query Workshops for this Program
-    # Try multiple possible relationship field names
+    # Using correct field names from Workshop__c object
     workshops_query1 = f"""
         SELECT Id, Name, Program__c,
-               Date_Time__c, Presenter__c,
-               Attendee_Count__c, Workshop_Name__c
+               Date_Time__c, Date__c, Workshop_Date__c,
+               Presenter__c, Workshop_Name__c, Workshop_Topic__c,
+               Site_Name__c, Format__c, Zoom_Link__c
         FROM Workshop__c
         WHERE Program__c = '{programId}'
-        ORDER BY Date_Time__c ASC
+        ORDER BY Date__c ASC
     """
-    
-    # Alternative: try without ORDER BY in case Date_Time__c is null
+
+    # Alternative: try without ORDER BY in case Date__c is null
     workshops_query2 = f"""
         SELECT Id, Name, Program__c,
-               Date_Time__c, Presenter__c,
-               Attendee_Count__c, Workshop_Name__c
+               Date_Time__c, Date__c, Workshop_Date__c,
+               Presenter__c, Workshop_Name__c, Workshop_Topic__c,
+               Site_Name__c, Format__c, Zoom_Link__c
         FROM Workshop__c
         WHERE Program__c = '{programId}'
     """
@@ -335,6 +342,94 @@ except Exception as e:
       return records;
     } catch (error) {
       console.error(`Failed to query Workshops for Program ${programId}:`, error);
+      return [];
+    }
+  }
+
+  /**
+   * Query all Workshops from Salesforce (not filtered by program)
+   */
+  async getAllWorkshops(): Promise<SalesforceWorkshop[]> {
+    const config = this.getConfig();
+    const scriptContent = `
+import sys
+import os
+sys.path.append(os.path.expanduser('~/.pythonlibs'))
+
+try:
+    from simple_salesforce import Salesforce
+    import json
+
+    # Get Salesforce config
+    domain = '${config.domain}'
+    username = '${config.username}'
+    password = '${config.password}'
+    security_token = '${config.securityToken}'
+
+    if not username or not password:
+        print(json.dumps({"error": "Salesforce credentials not configured"}))
+        exit(1)
+
+    # Connect to Salesforce
+    if domain not in ['login', 'test'] and '.' not in domain:
+        instance_url = f"https://{domain}.my.salesforce.com"
+        sf = Salesforce(
+            username=username,
+            password=password,
+            security_token=security_token,
+            instance_url=instance_url
+        )
+    else:
+        sf = Salesforce(
+            username=username,
+            password=password,
+            security_token=security_token,
+            domain=domain
+        )
+
+    # Query all Workshops
+    workshops_query = """
+        SELECT Id, Name, Program__c,
+               Date_Time__c, Date__c, Workshop_Date__c,
+               Presenter__c, Workshop_Name__c, Workshop_Topic__c,
+               Site_Name__c, Format__c, Zoom_Link__c
+        FROM Workshop__c
+        ORDER BY Date__c ASC
+        LIMIT 500
+    """
+
+    workshops = sf.query(workshops_query)
+    print(json.dumps({
+        "success": True,
+        "records": workshops.get('records', []),
+        "totalSize": workshops.get('totalSize', 0)
+    }))
+
+except ImportError:
+    print(json.dumps({"error": "simple-salesforce not installed"}))
+except Exception as e:
+    print(json.dumps({"error": str(e)}))
+`;
+
+    try {
+      const result = await this.salesforceService['executePythonScript'](scriptContent);
+      console.log(`[getAllWorkshops] Raw result:`, JSON.stringify(result, null, 2));
+
+      if (result.error) {
+        console.error('Salesforce All Workshops query error:', result.error);
+        return [];
+      }
+
+      if (result.success === false) {
+        console.error('Salesforce All Workshops query failed:', result.error);
+        return [];
+      }
+
+      const records = result.records || [];
+      console.log(`[getAllWorkshops] Returning ${records.length} workshops`);
+      return records;
+    } catch (error) {
+      console.error('Failed to query all Workshops:', error);
       return [];
     }
   }
