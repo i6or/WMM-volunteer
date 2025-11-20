@@ -777,6 +777,57 @@ except Exception as e:
     }
   });
 
+  // Describe Workshop__c object to see available fields
+  app.get("/api/salesforce/describe-workshop", async (req, res) => {
+    try {
+      const config = salesforceService.config;
+      const scriptContent = `
+import sys
+import os
+sys.path.append(os.path.expanduser('~/.pythonlibs'))
+
+try:
+    from simple_salesforce import Salesforce
+    import json
+
+    domain = '${config.domain}'
+    username = '${config.username}'
+    password = '${config.password}'
+    security_token = '${config.securityToken}'
+
+    if domain not in ['login', 'test'] and '.' not in domain:
+        sf = Salesforce(username=username, password=password, security_token=security_token, instance_url=f"https://{domain}.my.salesforce.com")
+    else:
+        sf = Salesforce(username=username, password=password, security_token=security_token, domain=domain)
+
+    # Describe Workshop__c object
+    workshop_desc = sf.Workshop__c.describe()
+    fields = [{"name": f['name'], "type": f['type'], "label": f['label']} for f in workshop_desc['fields']]
+
+    # Also try to count workshops
+    count_query = "SELECT COUNT() FROM Workshop__c"
+    count_result = sf.query(count_query)
+
+    print(json.dumps({
+        "success": True,
+        "fields": fields,
+        "totalWorkshops": count_result.get('totalSize', 0)
+    }))
+
+except Exception as e:
+    print(json.dumps({"error": str(e)}))
+`;
+
+      const result = await salesforceService['executePythonScript'](scriptContent);
+      res.json(result);
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: `Failed to describe Workshop__c: ${error}`
+      });
+    }
+  });
+
   // Get all Programs with their Workshops
   app.get("/api/salesforce/programs-with-workshops", async (req, res) => {
     try {

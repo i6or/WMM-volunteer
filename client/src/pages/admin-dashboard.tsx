@@ -610,13 +610,36 @@ export default function AdminDashboard() {
                   >
                     {loading ? "Testing..." : "Test Workshops for Program"}
                   </Button>
-                  <Button 
-                    onClick={checkDatabase} 
+                  <Button
+                    onClick={checkDatabase}
                     disabled={loading}
                     variant="outline"
                     className="w-full"
                   >
                     {loading ? "Checking..." : "Check Neon Database"}
+                  </Button>
+                  <Button
+                    onClick={async () => {
+                      setLoading(true);
+                      try {
+                        const response = await fetch('/api/salesforce/describe-workshop', { credentials: 'include' });
+                        const result = await response.json();
+                        console.log('Workshop__c fields:', result);
+                        if (result.success) {
+                          alert(`Workshop__c Object:\n\nTotal Workshops: ${result.totalWorkshops}\n\nFields (${result.fields.length}):\n${result.fields.map((f: any) => `${f.name} (${f.type})`).join('\n')}`);
+                        } else {
+                          alert(`Error: ${result.error}`);
+                        }
+                      } catch (error) {
+                        alert(`Error: ${error}`);
+                      }
+                      setLoading(false);
+                    }}
+                    disabled={loading || !connectionResult?.success}
+                    variant="outline"
+                    className="w-full bg-purple-600 hover:bg-purple-700 text-white"
+                  >
+                    {loading ? "Checking..." : "Describe Workshop__c Object"}
                   </Button>
                 </div>
                 <div className="space-y-2">
