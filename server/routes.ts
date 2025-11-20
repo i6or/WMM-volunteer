@@ -1036,11 +1036,13 @@ print(json.dumps({
   // Sync All Workshops from Salesforce to Database
   app.post("/api/salesforce/sync-workshops", async (req, res) => {
     try {
-      console.log(`[SYNC-WORKSHOPS] Starting workshop sync`);
+      console.log(`[SYNC-WORKSHOPS] ===== Starting workshop sync - CODE VERSION: ${new Date().toISOString()} =====`);
+      console.log(`[SYNC-WORKSHOPS] Using method: salesforceService.programService.getAllWorkshops()`);
 
       // Get all workshops from Salesforce
       const sfWorkshops = await salesforceService.programService.getAllWorkshops();
-      console.log(`[SYNC-WORKSHOPS] Found ${sfWorkshops.length} workshops in Salesforce`);
+      console.log(`[SYNC-WORKSHOPS] getAllWorkshops() returned ${sfWorkshops.length} workshops`);
+      console.log(`[SYNC-WORKSHOPS] Type of result:`, typeof sfWorkshops, `Array.isArray:`, Array.isArray(sfWorkshops));
 
       if (sfWorkshops.length > 0) {
         console.log(`[SYNC-WORKSHOPS] Sample workshop:`, JSON.stringify(sfWorkshops[0], null, 2));
