@@ -641,6 +641,29 @@ export default function AdminDashboard() {
                   >
                     {loading ? "Checking..." : "Describe Workshop__c Object"}
                   </Button>
+                  <Button
+                    onClick={async () => {
+                      setLoading(true);
+                      try {
+                        const response = await fetch('/api/salesforce/test-workshop-query', { credentials: 'include' });
+                        const result = await response.json();
+                        console.log('Workshop query test:', result);
+                        if (result.success) {
+                          alert(`Workshop Query Test:\n\nQuery: ${result.query}\n\nTotal: ${result.totalSize}\n\nRecords: ${result.records.length}\n\nSample:\n${JSON.stringify(result.records[0], null, 2)}`);
+                        } else {
+                          alert(`Query Failed!\n\nError: ${result.error}\n\nTraceback:\n${result.traceback}`);
+                        }
+                      } catch (error) {
+                        alert(`Error: ${error}`);
+                      }
+                      setLoading(false);
+                    }}
+                    disabled={loading || !connectionResult?.success}
+                    variant="outline"
+                    className="w-full bg-orange-600 hover:bg-orange-700 text-white"
+                  >
+                    {loading ? "Testing..." : "Test Workshop Query"}
+                  </Button>
                 </div>
                 <div className="space-y-2">
                   <div className="flex gap-2">

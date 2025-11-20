@@ -777,6 +777,59 @@ except Exception as e:
     }
   });
 
+  // Test Workshop query directly
+  app.get("/api/salesforce/test-workshop-query", async (req, res) => {
+    try {
+      const config = salesforceService.config;
+      const scriptContent = `
+import sys
+import os
+sys.path.append(os.path.expanduser('~/.pythonlibs'))
+
+try:
+    from simple_salesforce import Salesforce
+    import json
+
+    domain = '${config.domain}'
+    username = '${config.username}'
+    password = '${config.password}'
+    security_token = '${config.securityToken}'
+
+    if domain not in ['login', 'test'] and '.' not in domain:
+        sf = Salesforce(username=username, password=password, security_token=security_token, instance_url=f"https://{domain}.my.salesforce.com")
+    else:
+        sf = Salesforce(username=username, password=password, security_token=security_token, domain=domain)
+
+    # Try to query workshops
+    query = "SELECT Id, Name, Program__c, Date_Time__c, Presenter__c, Site_Name__c FROM Workshop__c LIMIT 5"
+    result = sf.query(query)
+
+    print(json.dumps({
+        "success": True,
+        "query": query,
+        "totalSize": result.get('totalSize', 0),
+        "records": result.get('records', [])
+    }))
+
+except Exception as e:
+    import traceback
+    print(json.dumps({
+        "success": False,
+        "error": str(e),
+        "traceback": traceback.format_exc()
+    }))
+`;
+
+      const result = await salesforceService['executePythonScript'](scriptContent);
+      res.json(result);
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: `Failed to test workshop query: ${error}`
+      });
+    }
+  });
+
   // Describe Workshop__c object to see available fields
   app.get("/api/salesforce/describe-workshop", async (req, res) => {
     try {
