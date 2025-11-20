@@ -917,11 +917,18 @@ print(json.dumps({
       const sfWorkshops = await salesforceService.programService.getAllWorkshops();
       console.log(`[SYNC-WORKSHOPS] Found ${sfWorkshops.length} workshops in Salesforce`);
 
+      if (sfWorkshops.length > 0) {
+        console.log(`[SYNC-WORKSHOPS] Sample workshop:`, JSON.stringify(sfWorkshops[0], null, 2));
+      }
+
       if (sfWorkshops.length === 0) {
         return res.json({
-          success: false,
-          message: `No workshops found in Salesforce.`,
-          workshopsSynced: 0
+          success: true,
+          message: `No workshops found in Salesforce. The Workshop__c object may be empty or the query failed.`,
+          workshopsSynced: 0,
+          debug: {
+            note: "Check server logs for query errors"
+          }
         });
       }
 
@@ -931,11 +938,9 @@ print(json.dumps({
 
       for (const sfWorkshop of sfWorkshops) {
         try {
-          // Parse date - prefer Date__c, fall back to Workshop_Date__c or Date_Time__c
+          // Parse date - prefer Workshop_Date__c, fall back to Date_Time__c
           let workshopDate = null;
-          if (sfWorkshop.Date__c) {
-            workshopDate = new Date(sfWorkshop.Date__c);
-          } else if (sfWorkshop.Workshop_Date__c) {
+          if (sfWorkshop.Workshop_Date__c) {
             workshopDate = new Date(sfWorkshop.Workshop_Date__c);
           } else if (sfWorkshop.Date_Time__c) {
             workshopDate = new Date(sfWorkshop.Date_Time__c);

@@ -83,11 +83,9 @@ export class ProgramSyncService {
     sfWorkshop: SalesforceWorkshop,
     programId: string
   ): any {
-    // Parse date - prefer Date__c, fall back to Workshop_Date__c or Date_Time__c
+    // Parse date - prefer Workshop_Date__c, fall back to Date_Time__c
     let workshopDate = null;
-    if (sfWorkshop.Date__c) {
-      workshopDate = new Date(sfWorkshop.Date__c);
-    } else if (sfWorkshop.Workshop_Date__c) {
+    if (sfWorkshop.Workshop_Date__c) {
       workshopDate = new Date(sfWorkshop.Workshop_Date__c);
     } else if (sfWorkshop.Date_Time__c) {
       workshopDate = new Date(sfWorkshop.Date_Time__c);

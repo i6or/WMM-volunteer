@@ -28,7 +28,6 @@ export interface SalesforceWorkshop {
   Name: string;
   Program__c: string;
   Date_Time__c?: string;
-  Date__c?: string;
   Workshop_Date__c?: string;
   Presenter__c?: string;
   Workshop_Name__c?: string;
@@ -260,18 +259,18 @@ try:
     # Using correct field names from Workshop__c object
     workshops_query1 = f"""
         SELECT Id, Name, Program__c,
-               Date_Time__c, Date__c, Workshop_Date__c,
+               Date_Time__c, Workshop_Date__c,
                Presenter__c, Workshop_Name__c, Workshop_Topic__c,
                Site_Name__c, Format__c, Zoom_Link__c
         FROM Workshop__c
         WHERE Program__c = '{programId}'
-        ORDER BY Date__c ASC
+        ORDER BY Workshop_Date__c ASC NULLS LAST
     """
 
-    # Alternative: try without ORDER BY in case Date__c is null
+    # Alternative: try without ORDER BY in case Workshop_Date__c is null
     workshops_query2 = f"""
         SELECT Id, Name, Program__c,
-               Date_Time__c, Date__c, Workshop_Date__c,
+               Date_Time__c, Workshop_Date__c,
                Presenter__c, Workshop_Name__c, Workshop_Topic__c,
                Site_Name__c, Format__c, Zoom_Link__c
         FROM Workshop__c
@@ -387,23 +386,49 @@ try:
             domain=domain
         )
 
-    # Query all Workshops
-    workshops_query = """
+    # Query all Workshops - try with ORDER BY first
+    workshops_query1 = """
         SELECT Id, Name, Program__c,
-               Date_Time__c, Date__c, Workshop_Date__c,
+               Date_Time__c, Workshop_Date__c,
                Presenter__c, Workshop_Name__c, Workshop_Topic__c,
                Site_Name__c, Format__c, Zoom_Link__c
         FROM Workshop__c
-        ORDER BY Date__c ASC
+        ORDER BY Workshop_Date__c ASC NULLS LAST
         LIMIT 500
     """
 
-    workshops = sf.query(workshops_query)
-    print(json.dumps({
-        "success": True,
-        "records": workshops.get('records', []),
-        "totalSize": workshops.get('totalSize', 0)
-    }))
+    # Alternative: try without ORDER BY
+    workshops_query2 = """
+        SELECT Id, Name, Program__c,
+               Date_Time__c, Workshop_Date__c,
+               Presenter__c, Workshop_Name__c, Workshop_Topic__c,
+               Site_Name__c, Format__c, Zoom_Link__c
+        FROM Workshop__c
+        LIMIT 500
+    """
+
+    try:
+        workshops = sf.query(workshops_query1)
+        print(json.dumps({
+            "success": True,
+            "records": workshops.get('records', []),
+            "totalSize": workshops.get('totalSize', 0),
+            "query": "query1_with_order"
+        }))
+    except Exception as e1:
+        try:
+            workshops = sf.query(workshops_query2)
+            print(json.dumps({
+                "success": True,
+                "records": workshops.get('records', []),
+                "totalSize": workshops.get('totalSize', 0),
+                "query": "query2_no_order"
+            }))
+        except Exception as e2:
+            print(json.dumps({
+                "success": False,
+                "error": f"Both queries failed. Query1: {str(e1)}, Query2: {str(e2)}"
+            }))
 
 except ImportError:
     print(json.dumps({"error": "simple-salesforce not installed"}))
