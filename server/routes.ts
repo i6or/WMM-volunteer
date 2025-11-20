@@ -800,8 +800,8 @@ try:
     else:
         sf = Salesforce(username=username, password=password, security_token=security_token, domain=domain)
 
-    # Try to query workshops
-    query = "SELECT Id, Name, Program__c, Date_Time__c, Presenter__c, Site_Name__c FROM Workshop__c LIMIT 5"
+    # Try to query workshops with date filter
+    query = "SELECT Id, Name, Program__c, Date_Time__c, Presenter__c, Site_Name__c FROM Workshop__c WHERE Date_Time__c >= LAST_QUARTER AND Date_Time__c <= NEXT_N_QUARTERS:2 ORDER BY Date_Time__c DESC LIMIT 5"
     result = sf.query(query)
 
     print(json.dumps({
