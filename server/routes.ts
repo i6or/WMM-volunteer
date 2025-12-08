@@ -40,7 +40,15 @@ const participantQuerySchema = z.object({
   search: z.string().optional(),
 });
 
+// Code version for debugging deployments
+const CODE_VERSION = "2024-12-08-v3";
+
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Version check endpoint
+  app.get("/api/version", (req, res) => {
+    res.json({ version: CODE_VERSION, timestamp: new Date().toISOString() });
+  });
+
   // ============================================
   // SIMPLE PROGRAMS ENDPOINTS - MINIMAL APPROACH
   // ============================================
