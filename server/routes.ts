@@ -5,7 +5,7 @@ import { salesforceService } from "./services/salesforce";
 import { ProgramSyncService } from "./services/sync-programs";
 import { db } from "./db";
 import { sql, eq } from "drizzle-orm";
-import { insertVolunteerSchema, insertOpportunitySchema, insertVolunteerSignupSchema, insertProgramSchema, insertWorkshopSchema, insertParticipantSchema, insertParticipantWorkshopSchema, workshops } from "@shared/schema";
+import { insertVolunteerSchema, insertOpportunitySchema, insertVolunteerSignupSchema, insertProgramSchema, insertWorkshopSchema, insertParticipantSchema, insertParticipantWorkshopSchema, workshops, programs } from "@shared/schema";
 import { z } from "zod";
 
 const volunteerQuerySchema = z.object({
@@ -1065,6 +1065,21 @@ print(json.dumps({
 
       for (const sfWorkshop of sfWorkshops) {
         try {
+          // Map Salesforce program ID to database program ID
+          let dbProgramId = null;
+          if (sfWorkshop.Program__c) {
+            const [dbProgram] = await db
+              .select()
+              .from(programs)
+              .where(eq(programs.salesforceId, sfWorkshop.Program__c))
+              .limit(1);
+            if (dbProgram) {
+              dbProgramId = dbProgram.id;
+            } else {
+              console.log(`[SYNC-WORKSHOPS] Warning: Program with Salesforce ID ${sfWorkshop.Program__c} not found in database`);
+            }
+          }
+
           // Parse date from Date_Time__c (only date field available)
           let workshopDate = null;
           let startTime = "9:00 AM";
@@ -1083,7 +1098,7 @@ print(json.dumps({
 
           const workshopData = {
             salesforceId: sfWorkshop.Id,
-            programId: sfWorkshop.Program__c || null,
+            programId: dbProgramId,
             name: workshopName,
             title: workshopName,
             topic: null,
@@ -1121,6 +1136,14 @@ print(json.dumps({
           workshopsSynced++;
         } catch (error) {
           console.error(`Failed to sync workshop ${sfWorkshop.Id}:`, error);
+          // Return error on first failure so we can see what's wrong
+          return res.status(500).json({
+            success: false,
+            message: `Failed to sync workshop ${sfWorkshop.Id}: ${error}`,
+            workshopsSynced,
+            failedWorkshop: sfWorkshop,
+            error: String(error)
+          });
         }
       }
 
