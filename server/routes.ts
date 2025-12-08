@@ -1041,11 +1041,9 @@ print(json.dumps({
     }
   });
 
-  // Debug endpoint: Try to sync just ONE workshop to see exact error
+  // Debug endpoint: Try to sync just ONE workshop using RAW SQL (bypasses Drizzle schema)
   app.post("/api/salesforce/sync-one-workshop", async (req, res) => {
     try {
-      const { randomUUID } = await import("crypto");
-
       // Get workshops
       const sfWorkshops = await salesforceService.programService.getAllWorkshops();
       if (sfWorkshops.length === 0) {
@@ -1055,16 +1053,14 @@ print(json.dumps({
       const sfWorkshop = sfWorkshops[0]; // Just the first one
       console.log(`[SYNC-ONE] Trying to sync workshop:`, JSON.stringify(sfWorkshop, null, 2));
 
-      // Find matching program
+      // Find matching program using raw SQL
       let dbProgramId = null;
       if (sfWorkshop.Program__c) {
-        const [dbProgram] = await db
-          .select()
-          .from(programs)
-          .where(eq(programs.salesforceId, sfWorkshop.Program__c))
-          .limit(1);
-        if (dbProgram) {
-          dbProgramId = dbProgram.id;
+        const programResult = await db.execute(
+          sql`SELECT id FROM programs WHERE salesforce_id = ${sfWorkshop.Program__c} LIMIT 1`
+        );
+        if (programResult.rows.length > 0) {
+          dbProgramId = (programResult.rows[0] as any).id;
           console.log(`[SYNC-ONE] Found matching program: ${dbProgramId}`);
         } else {
           console.log(`[SYNC-ONE] No matching program for ${sfWorkshop.Program__c}`);
@@ -1083,33 +1079,46 @@ print(json.dumps({
 
       const workshopName = sfWorkshop.Name || "Unnamed Workshop";
 
-      const workshopData = {
-        id: randomUUID(),
-        salesforceId: sfWorkshop.Id,
-        programId: dbProgramId,
-        name: workshopName,
-        title: workshopName,
-        topic: null,
-        description: `Workshop: ${workshopName}`,
-        date: workshopDate,
-        startTime: startTime,
-        endTime: "5:00 PM",
-        location: sfWorkshop.Site_Name__c || null,
-        maxParticipants: null,
-        currentParticipants: 0,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
-
-      console.log(`[SYNC-ONE] Workshop data:`, JSON.stringify(workshopData, null, 2));
-
-      // Try to insert
-      await db.insert(workshops).values(workshopData);
+      // Use RAW SQL to insert (bypasses Drizzle schema which may be out of sync)
+      const insertResult = await db.execute(sql`
+        INSERT INTO workshops (
+          id, salesforce_id, program_id, name, title, topic, description,
+          date, start_time, end_time, location, max_participants,
+          current_participants, status, created_at, updated_at
+        ) VALUES (
+          gen_random_uuid(),
+          ${sfWorkshop.Id},
+          ${dbProgramId},
+          ${workshopName},
+          ${workshopName},
+          NULL,
+          ${'Workshop: ' + workshopName},
+          ${workshopDate},
+          ${startTime},
+          ${'5:00 PM'},
+          ${sfWorkshop.Site_Name__c || null},
+          NULL,
+          0,
+          'scheduled',
+          NOW(),
+          NOW()
+        )
+        ON CONFLICT (salesforce_id) DO UPDATE SET
+          name = EXCLUDED.name,
+          title = EXCLUDED.title,
+          description = EXCLUDED.description,
+          date = EXCLUDED.date,
+          start_time = EXCLUDED.start_time,
+          program_id = EXCLUDED.program_id,
+          location = EXCLUDED.location,
+          updated_at = NOW()
+        RETURNING id, name, title
+      `);
 
       res.json({
         success: true,
         message: "Successfully synced 1 workshop!",
-        workshop: workshopData
+        result: insertResult.rows[0]
       });
     } catch (error) {
       console.error(`[SYNC-ONE] Error:`, error);
@@ -1147,29 +1156,24 @@ print(json.dumps({
         });
       }
 
-      // Sync each workshop to database
+      // Sync each workshop to database using RAW SQL (bypasses Drizzle schema mismatch)
       let workshopsSynced = 0;
-      const { randomUUID } = await import("crypto");
 
       for (const sfWorkshop of sfWorkshops) {
         try {
-          // Map Salesforce program ID to database program ID
+          // Map Salesforce program ID to database program ID using raw SQL
           let dbProgramId = null;
           if (sfWorkshop.Program__c) {
-            const [dbProgram] = await db
-              .select()
-              .from(programs)
-              .where(eq(programs.salesforceId, sfWorkshop.Program__c))
-              .limit(1);
-            if (dbProgram) {
-              dbProgramId = dbProgram.id;
-            } else {
-              console.log(`[SYNC-WORKSHOPS] Warning: Program with Salesforce ID ${sfWorkshop.Program__c} not found in database`);
+            const programResult = await db.execute(
+              sql`SELECT id FROM programs WHERE salesforce_id = ${sfWorkshop.Program__c} LIMIT 1`
+            );
+            if (programResult.rows.length > 0) {
+              dbProgramId = (programResult.rows[0] as any).id;
             }
           }
 
-          // Parse date from Date_Time__c (only date field available)
-          let workshopDate = null;
+          // Parse date from Date_Time__c
+          let workshopDate = new Date();
           let startTime = "9:00 AM";
 
           if (sfWorkshop.Date_Time__c) {
@@ -1184,43 +1188,40 @@ print(json.dumps({
 
           const workshopName = sfWorkshop.Name || "Unnamed Workshop";
 
-          const workshopData = {
-            salesforceId: sfWorkshop.Id,
-            programId: dbProgramId,
-            name: workshopName,
-            title: workshopName,
-            topic: null,
-            description: `Workshop: ${workshopName}`,
-            date: workshopDate || new Date(),
-            startTime: startTime,
-            endTime: "5:00 PM",
-            location: sfWorkshop.Site_Name__c || null,
-            maxParticipants: null,
-            currentParticipants: 0,
-            updatedAt: new Date(),
-          };
-
-          // Check if workshop exists
-          const [existingWorkshop] = await db
-            .select()
-            .from(workshops)
-            .where(eq(workshops.salesforceId, sfWorkshop.Id))
-            .limit(1);
-
-          if (existingWorkshop) {
-            await db
-              .update(workshops)
-              .set(workshopData)
-              .where(eq(workshops.id, existingWorkshop.id));
-          } else {
-            await db
-              .insert(workshops)
-              .values({
-                ...workshopData,
-                id: randomUUID(),
-                createdAt: new Date(),
-              });
-          }
+          // Use RAW SQL with UPSERT (bypasses Drizzle schema)
+          await db.execute(sql`
+            INSERT INTO workshops (
+              id, salesforce_id, program_id, name, title, topic, description,
+              date, start_time, end_time, location, max_participants,
+              current_participants, status, created_at, updated_at
+            ) VALUES (
+              gen_random_uuid(),
+              ${sfWorkshop.Id},
+              ${dbProgramId},
+              ${workshopName},
+              ${workshopName},
+              NULL,
+              ${'Workshop: ' + workshopName},
+              ${workshopDate},
+              ${startTime},
+              ${'5:00 PM'},
+              ${sfWorkshop.Site_Name__c || null},
+              NULL,
+              0,
+              'scheduled',
+              NOW(),
+              NOW()
+            )
+            ON CONFLICT (salesforce_id) DO UPDATE SET
+              name = EXCLUDED.name,
+              title = EXCLUDED.title,
+              description = EXCLUDED.description,
+              date = EXCLUDED.date,
+              start_time = EXCLUDED.start_time,
+              program_id = EXCLUDED.program_id,
+              location = EXCLUDED.location,
+              updated_at = NOW()
+          `);
           workshopsSynced++;
         } catch (error) {
           console.error(`Failed to sync workshop ${sfWorkshop.Id}:`, error);
