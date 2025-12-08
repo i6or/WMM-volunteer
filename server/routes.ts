@@ -1041,6 +1041,86 @@ print(json.dumps({
     }
   });
 
+  // Debug endpoint: Try to sync just ONE workshop to see exact error
+  app.post("/api/salesforce/sync-one-workshop", async (req, res) => {
+    try {
+      const { randomUUID } = await import("crypto");
+
+      // Get workshops
+      const sfWorkshops = await salesforceService.programService.getAllWorkshops();
+      if (sfWorkshops.length === 0) {
+        return res.json({ success: false, error: "No workshops found from Salesforce" });
+      }
+
+      const sfWorkshop = sfWorkshops[0]; // Just the first one
+      console.log(`[SYNC-ONE] Trying to sync workshop:`, JSON.stringify(sfWorkshop, null, 2));
+
+      // Find matching program
+      let dbProgramId = null;
+      if (sfWorkshop.Program__c) {
+        const [dbProgram] = await db
+          .select()
+          .from(programs)
+          .where(eq(programs.salesforceId, sfWorkshop.Program__c))
+          .limit(1);
+        if (dbProgram) {
+          dbProgramId = dbProgram.id;
+          console.log(`[SYNC-ONE] Found matching program: ${dbProgramId}`);
+        } else {
+          console.log(`[SYNC-ONE] No matching program for ${sfWorkshop.Program__c}`);
+        }
+      }
+
+      // Parse date
+      let workshopDate = new Date();
+      let startTime = "9:00 AM";
+      if (sfWorkshop.Date_Time__c) {
+        workshopDate = new Date(sfWorkshop.Date_Time__c);
+        startTime = workshopDate.toLocaleTimeString('en-US', {
+          hour: '2-digit', minute: '2-digit', hour12: true
+        });
+      }
+
+      const workshopName = sfWorkshop.Name || "Unnamed Workshop";
+
+      const workshopData = {
+        id: randomUUID(),
+        salesforceId: sfWorkshop.Id,
+        programId: dbProgramId,
+        name: workshopName,
+        title: workshopName,
+        topic: null,
+        description: `Workshop: ${workshopName}`,
+        date: workshopDate,
+        startTime: startTime,
+        endTime: "5:00 PM",
+        location: sfWorkshop.Site_Name__c || null,
+        maxParticipants: null,
+        currentParticipants: 0,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      console.log(`[SYNC-ONE] Workshop data:`, JSON.stringify(workshopData, null, 2));
+
+      // Try to insert
+      await db.insert(workshops).values(workshopData);
+
+      res.json({
+        success: true,
+        message: "Successfully synced 1 workshop!",
+        workshop: workshopData
+      });
+    } catch (error) {
+      console.error(`[SYNC-ONE] Error:`, error);
+      res.status(500).json({
+        success: false,
+        error: String(error),
+        stack: error instanceof Error ? error.stack : undefined
+      });
+    }
+  });
+
   // Sync All Workshops from Salesforce to Database
   app.post("/api/salesforce/sync-workshops", async (req, res) => {
     try {
