@@ -41,12 +41,53 @@ const participantQuerySchema = z.object({
 });
 
 // Code version for debugging deployments
-const CODE_VERSION = "2024-12-08-v4-raw-sql";
+const CODE_VERSION = "2024-12-08-v5-with-migration";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Version check endpoint
   app.get("/api/version", (req, res) => {
     res.json({ version: CODE_VERSION, timestamp: new Date().toISOString() });
+  });
+
+  // Database migration endpoint - adds missing columns to workshops table
+  app.post("/api/admin/migrate-workshops-table", async (req, res) => {
+    try {
+      // Check current columns
+      const columnsResult = await db.execute(sql`
+        SELECT column_name FROM information_schema.columns
+        WHERE table_name = 'workshops'
+      `);
+      const existingColumns = columnsResult.rows.map((r: any) => r.column_name);
+
+      const migrations: string[] = [];
+
+      // Add 'name' column if it doesn't exist
+      if (!existingColumns.includes('name')) {
+        await db.execute(sql`ALTER TABLE workshops ADD COLUMN name text`);
+        migrations.push("Added 'name' column");
+      }
+
+      // Add 'topic' column if it doesn't exist
+      if (!existingColumns.includes('topic')) {
+        await db.execute(sql`ALTER TABLE workshops ADD COLUMN topic text`);
+        migrations.push("Added 'topic' column");
+      }
+
+      // Update any null names to use title
+      await db.execute(sql`UPDATE workshops SET name = COALESCE(title, 'Unnamed Workshop') WHERE name IS NULL`);
+
+      res.json({
+        success: true,
+        existingColumns,
+        migrations: migrations.length > 0 ? migrations : ["No migrations needed - all columns exist"],
+        message: "Migration complete"
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        error: String(error)
+      });
+    }
   });
 
   // ============================================
