@@ -142,11 +142,16 @@ try:
     else:
         where_clause = ""
     
-    # Use the exact query pattern that works (test_query2)
+    # Use expanded query with all needed fields including Number_of_Coaches_in_Program__c
+    fields = """Id, Name, Program_Start_Date__c, Program_End_Date__c, Status__c, Status_a__c,
+        Type__c, Format__c, Language__c,
+        Workshop_Day__c, Workshop_Time__c, workshop_frequency__c, Number_of_Workshops__c,
+        Program_Leader_Full_Name__c, Total_Participants__c, Number_of_Coaches_in_Program__c,
+        Zoom_link__c, Program_Schedule_Link__c, Program_Partner__r.Name"""
     if where_clause:
-        query = f"SELECT Id, Name, Program_Start_Date__c, Program_End_Date__c, Status__c, Status_a__c FROM Program__c {where_clause} LIMIT 100"
+        query = f"SELECT {fields} FROM Program__c {where_clause} LIMIT 100"
     else:
-        query = "SELECT Id, Name, Program_Start_Date__c, Program_End_Date__c, Status__c, Status_a__c FROM Program__c LIMIT 100"
+        query = f"SELECT {fields} FROM Program__c LIMIT 100"
     
     print(f"DEBUG: Executing query: {query}", file=sys.stderr)
     programs = sf.query(query)
