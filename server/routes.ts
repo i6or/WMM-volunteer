@@ -41,7 +41,7 @@ const participantQuerySchema = z.object({
 });
 
 // Code version for debugging deployments
-const CODE_VERSION = "2024-12-09-v9-coach-count";
+const CODE_VERSION = "2024-12-09-v10-describe-program";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Version check endpoint
@@ -880,6 +880,57 @@ except Exception as e:
     } catch (error) {
       console.error('[SIMPLE] Error:', error);
       res.status(500).json({ success: false, error: String(error) });
+    }
+  });
+
+  // Describe Program__c object to see all available fields
+  app.get("/api/salesforce/describe-program", async (req, res) => {
+    try {
+      const config = salesforceService.config;
+      const scriptContent = `
+import sys
+import os
+sys.path.append(os.path.expanduser('~/.pythonlibs'))
+
+try:
+    from simple_salesforce import Salesforce
+    import json
+
+    domain = '${config.domain}'
+    username = '${config.username}'
+    password = '${config.password}'
+    security_token = '${config.securityToken}'
+
+    if domain not in ['login', 'test'] and '.' not in domain:
+        sf = Salesforce(username=username, password=password, security_token=security_token, instance_url=f"https://{domain}.my.salesforce.com")
+    else:
+        sf = Salesforce(username=username, password=password, security_token=security_token, domain=domain)
+
+    # Describe Program__c object
+    program_desc = sf.Program__c.describe()
+
+    # Filter for coach/volunteer related fields
+    all_fields = [{"name": f['name'], "type": f['type'], "label": f['label']} for f in program_desc['fields']]
+    coach_fields = [f for f in all_fields if 'coach' in f['name'].lower() or 'coach' in f['label'].lower() or 'volunteer' in f['name'].lower() or 'volunteer' in f['label'].lower() or 'number' in f['name'].lower()]
+
+    print(json.dumps({
+        "success": True,
+        "coachRelatedFields": coach_fields,
+        "allFields": all_fields
+    }))
+
+except Exception as e:
+    import traceback
+    print(json.dumps({"error": str(e), "traceback": traceback.format_exc()}))
+`;
+
+      const result = await salesforceService['executePythonScript'](scriptContent);
+      res.json(result);
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: `Failed to describe Program__c: ${error}`
+      });
     }
   });
 
