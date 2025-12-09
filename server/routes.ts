@@ -41,7 +41,7 @@ const participantQuerySchema = z.object({
 });
 
 // Code version for debugging deployments
-const CODE_VERSION = "2024-12-08-v6-sorted-workshops";
+const CODE_VERSION = "2024-12-09-v7-quarter-debug";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Version check endpoint
