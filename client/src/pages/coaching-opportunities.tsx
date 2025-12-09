@@ -349,6 +349,12 @@ export default function CoachingOpportunities() {
                             <div>{program.ageRange}</div>
                           )}
                         </div>
+                        {/* Salesforce ID (debug) */}
+                        {program.salesforceId && (
+                          <p className="text-xs text-green-200 font-mono mt-2">
+                            SF ID: {program.salesforceId}
+                          </p>
+                        )}
                       </div>
                     </div>
                   </CardHeader>
