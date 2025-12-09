@@ -41,7 +41,7 @@ const participantQuerySchema = z.object({
 });
 
 // Code version for debugging deployments
-const CODE_VERSION = "2024-12-09-v12-expanded-query";
+const CODE_VERSION = "2024-12-09-v13-sync-recent-programs";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Version check endpoint
@@ -207,7 +207,10 @@ query = """SELECT Id, Name, Program_Start_Date__c, Program_End_Date__c,
     Program_Leader_Full_Name__c, Total_Participants__c, Number_of_Coaches_in_Program__c,
     Zoom_link__c, Program_Schedule_Link__c,
     Workshop_Start_Date_Time__c, Program_Partner__r.Name
-    FROM Program__c LIMIT 100"""
+    FROM Program__c
+    WHERE Program_Start_Date__c >= LAST_N_MONTHS:6
+    ORDER BY Program_Start_Date__c DESC
+    LIMIT 100"""
 result = sf.query(query)
 
 print(json.dumps({
