@@ -377,9 +377,18 @@ try:
             domain=domain
         )
 
-    # Query all Workshops - using only fields that exist
-    # Filter: Last quarter through next 2 quarters (3 quarters total)
-    workshops_query1 = """
+    # Query all Workshops - try multiple strategies
+    # Strategy 1: Get all workshops (no date filter) - most inclusive
+    workshops_query_all = """
+        SELECT Id, Name, Program__c,
+               Date_Time__c, Presenter__c, Site_Name__c
+        FROM Workshop__c
+        ORDER BY Date_Time__c DESC NULLS LAST
+        LIMIT 1000
+    """
+
+    # Strategy 2: With date filter (Last quarter through next 2 quarters)
+    workshops_query_filtered = """
         SELECT Id, Name, Program__c,
                Date_Time__c, Presenter__c, Site_Name__c
         FROM Workshop__c
@@ -389,48 +398,63 @@ try:
         LIMIT 1000
     """
 
-    # Alternative: try without ORDER BY
-    workshops_query2 = """
+    # Strategy 3: Without ORDER BY (in case ORDER BY causes issues)
+    workshops_query_simple = """
         SELECT Id, Name, Program__c,
                Date_Time__c, Presenter__c, Site_Name__c
         FROM Workshop__c
-        WHERE Date_Time__c >= LAST_QUARTER
-          AND Date_Time__c <= NEXT_N_QUARTERS:2
         LIMIT 1000
     """
 
+    # Try query_all first (most inclusive)
     try:
-        print(f"DEBUG: Attempting query1 with ORDER BY", file=sys.stderr)
-        workshops = sf.query(workshops_query1)
+        print(f"DEBUG: Attempting query_all (no date filter)", file=sys.stderr)
+        workshops = sf.query(workshops_query_all)
         totalSize = workshops.get('totalSize', 0)
         records = workshops.get('records', [])
-        print(f"DEBUG: Query1 succeeded. TotalSize: {totalSize}, Records: {len(records)}", file=sys.stderr)
+        print(f"DEBUG: Query_all succeeded. TotalSize: {totalSize}, Records: {len(records)}", file=sys.stderr)
         print(json.dumps({
             "success": True,
             "records": records,
             "totalSize": totalSize,
-            "query": "query1_with_order"
+            "query": "query_all"
         }))
     except Exception as e1:
-        print(f"DEBUG: Query1 failed: {str(e1)}", file=sys.stderr)
+        print(f"DEBUG: Query_all failed: {str(e1)}", file=sys.stderr)
+        # Try filtered query
         try:
-            print(f"DEBUG: Attempting query2 without ORDER BY", file=sys.stderr)
-            workshops = sf.query(workshops_query2)
+            print(f"DEBUG: Attempting query_filtered (with date range)", file=sys.stderr)
+            workshops = sf.query(workshops_query_filtered)
             totalSize = workshops.get('totalSize', 0)
             records = workshops.get('records', [])
-            print(f"DEBUG: Query2 succeeded. TotalSize: {totalSize}, Records: {len(records)}", file=sys.stderr)
+            print(f"DEBUG: Query_filtered succeeded. TotalSize: {totalSize}, Records: {len(records)}", file=sys.stderr)
             print(json.dumps({
                 "success": True,
                 "records": records,
                 "totalSize": totalSize,
-                "query": "query2_no_order"
+                "query": "query_filtered"
             }))
         except Exception as e2:
-            print(f"DEBUG: Query2 also failed: {str(e2)}", file=sys.stderr)
-            print(json.dumps({
-                "success": False,
-                "error": f"Both queries failed. Query1: {str(e1)}, Query2: {str(e2)}"
-            }))
+            print(f"DEBUG: Query_filtered failed: {str(e2)}", file=sys.stderr)
+            # Try simple query without ORDER BY
+            try:
+                print(f"DEBUG: Attempting query_simple (no ORDER BY)", file=sys.stderr)
+                workshops = sf.query(workshops_query_simple)
+                totalSize = workshops.get('totalSize', 0)
+                records = workshops.get('records', [])
+                print(f"DEBUG: Query_simple succeeded. TotalSize: {totalSize}, Records: {len(records)}", file=sys.stderr)
+                print(json.dumps({
+                    "success": True,
+                    "records": records,
+                    "totalSize": totalSize,
+                    "query": "query_simple"
+                }))
+            except Exception as e3:
+                print(f"DEBUG: All queries failed. Query_all: {str(e1)}, Query_filtered: {str(e2)}, Query_simple: {str(e3)}", file=sys.stderr)
+                print(json.dumps({
+                    "success": False,
+                    "error": f"All queries failed. Query_all: {str(e1)}, Query_filtered: {str(e2)}, Query_simple: {str(e3)}"
+                }))
 
 except ImportError:
     print(json.dumps({"error": "simple-salesforce not installed"}))
@@ -457,13 +481,35 @@ except Exception as e:
         return [];
       }
 
-      const records = result.records || [];
+      // Handle Salesforce query response format - records might have attributes that need stripping
+      let records = result.records || [];
+      
+      // Clean records if they have Salesforce attributes
+      if (records.length > 0 && records[0].attributes) {
+        records = records.map((record: any) => {
+          const cleaned: any = {};
+          Object.keys(record).forEach(key => {
+            if (key !== 'attributes') {
+              cleaned[key] = record[key];
+            }
+          });
+          return cleaned;
+        });
+      }
+
       console.log(`[getAllWorkshops] Returning ${records.length} workshops`);
+      console.log(`[getAllWorkshops] Query used: ${result.query || 'unknown'}`);
+      console.log(`[getAllWorkshops] Total size from Salesforce: ${result.totalSize || 0}`);
 
       if (records.length > 0) {
         console.log(`[getAllWorkshops] First workshop:`, JSON.stringify(records[0], null, 2));
       } else {
-        console.log(`[getAllWorkshops] WARNING: Query succeeded but returned 0 records. Result:`, JSON.stringify(result, null, 2));
+        console.log(`[getAllWorkshops] WARNING: Query succeeded but returned 0 records.`);
+        console.log(`[getAllWorkshops] Full result:`, JSON.stringify(result, null, 2));
+        console.log(`[getAllWorkshops] This could mean:`);
+        console.log(`[getAllWorkshops]   1. No workshops exist in Salesforce`);
+        console.log(`[getAllWorkshops]   2. All workshops are outside the date range (if filtered)`);
+        console.log(`[getAllWorkshops]   3. Query syntax issue (check Salesforce object name)`);
       }
 
       return records;
