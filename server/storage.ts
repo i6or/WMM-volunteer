@@ -778,6 +778,9 @@ export class DatabaseStorage implements IStorage {
   async getAllWorkshops(filters?: { programId?: string; status?: string; search?: string }): Promise<Workshop[]> {
     let conditions = [];
 
+    // By default, only show upcoming workshops (date >= today)
+    conditions.push(sql`${workshops.date} >= CURRENT_DATE`);
+
     if (filters?.programId) {
       conditions.push(eq(workshops.programId, filters.programId));
     }
@@ -788,15 +791,14 @@ export class DatabaseStorage implements IStorage {
 
     if (filters?.search) {
       conditions.push(
-        sql`${workshops.title} ILIKE ${'%' + filters.search + '%'} OR ${workshops.description} ILIKE ${'%' + filters.search + '%'}`
+        sql`${workshops.name} ILIKE ${'%' + filters.search + '%'} OR ${workshops.title} ILIKE ${'%' + filters.search + '%'} OR ${workshops.description} ILIKE ${'%' + filters.search + '%'}`
       );
     }
 
-    const query = conditions.length > 0 
-      ? db.select().from(workshops).where(and(...conditions))
-      : db.select().from(workshops);
+    const baseQuery = db.select().from(workshops).where(and(...conditions));
 
-    return await query;
+    // Order by date ascending (closest upcoming workshops first)
+    return await baseQuery.orderBy(sql`${workshops.date} ASC`);
   }
 
   // Participant operations
