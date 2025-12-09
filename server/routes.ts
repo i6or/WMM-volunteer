@@ -702,6 +702,123 @@ except Exception as e:
     }
   });
 
+  // DEBUG: Test different date filters for programs
+  app.get("/api/salesforce/debug-quarter-query", async (req, res) => {
+    try {
+      const config = salesforceService.config;
+      const scriptContent = `
+import sys
+import os
+sys.path.append(os.path.expanduser('~/.pythonlibs'))
+
+try:
+    from simple_salesforce import Salesforce
+    import json
+    from datetime import datetime
+
+    domain = '${config.domain}'
+    username = '${config.username}'
+    password = '${config.password}'
+    security_token = '${config.securityToken}'
+
+    if domain not in ['login', 'test'] and '.' not in domain:
+        instance_url = f"https://{domain}.my.salesforce.com"
+        sf = Salesforce(username=username, password=password, security_token=security_token, instance_url=instance_url)
+    else:
+        sf = Salesforce(username=username, password=password, security_token=security_token, domain=domain)
+
+    results = {}
+
+    # Test 1: THIS_QUARTER
+    try:
+        query1 = "SELECT Id, Name, Program_Start_Date__c, Status__c, Status_a__c FROM Program__c WHERE Program_Start_Date__c = THIS_QUARTER LIMIT 10"
+        result1 = sf.query(query1)
+        results["THIS_QUARTER"] = {
+            "query": query1,
+            "count": result1.get('totalSize', 0),
+            "records": [{"Id": r.get("Id"), "Name": r.get("Name"), "StartDate": r.get("Program_Start_Date__c")} for r in result1.get('records', [])]
+        }
+    except Exception as e1:
+        results["THIS_QUARTER"] = {"error": str(e1)}
+
+    # Test 2: THIS_FISCAL_QUARTER
+    try:
+        query2 = "SELECT Id, Name, Program_Start_Date__c, Status__c, Status_a__c FROM Program__c WHERE Program_Start_Date__c = THIS_FISCAL_QUARTER LIMIT 10"
+        result2 = sf.query(query2)
+        results["THIS_FISCAL_QUARTER"] = {
+            "query": query2,
+            "count": result2.get('totalSize', 0),
+            "records": [{"Id": r.get("Id"), "Name": r.get("Name"), "StartDate": r.get("Program_Start_Date__c")} for r in result2.get('records', [])]
+        }
+    except Exception as e2:
+        results["THIS_FISCAL_QUARTER"] = {"error": str(e2)}
+
+    # Test 3: Explicit date range (Q4 2025: Oct 1 - Dec 31)
+    try:
+        query3 = "SELECT Id, Name, Program_Start_Date__c, Status__c, Status_a__c FROM Program__c WHERE Program_Start_Date__c >= 2025-10-01 AND Program_Start_Date__c <= 2025-12-31 LIMIT 10"
+        result3 = sf.query(query3)
+        results["EXPLICIT_Q4_2025"] = {
+            "query": query3,
+            "count": result3.get('totalSize', 0),
+            "records": [{"Id": r.get("Id"), "Name": r.get("Name"), "StartDate": r.get("Program_Start_Date__c")} for r in result3.get('records', [])]
+        }
+    except Exception as e3:
+        results["EXPLICIT_Q4_2025"] = {"error": str(e3)}
+
+    # Test 4: Recent programs (last 30 days to next 60 days)
+    try:
+        query4 = "SELECT Id, Name, Program_Start_Date__c, Status__c, Status_a__c FROM Program__c WHERE Program_Start_Date__c >= LAST_N_DAYS:30 AND Program_Start_Date__c <= NEXT_N_DAYS:60 LIMIT 10"
+        result4 = sf.query(query4)
+        results["LAST_30_NEXT_60"] = {
+            "query": query4,
+            "count": result4.get('totalSize', 0),
+            "records": [{"Id": r.get("Id"), "Name": r.get("Name"), "StartDate": r.get("Program_Start_Date__c")} for r in result4.get('records', [])]
+        }
+    except Exception as e4:
+        results["LAST_30_NEXT_60"] = {"error": str(e4)}
+
+    # Test 5: All programs (no filter)
+    try:
+        query5 = "SELECT Id, Name, Program_Start_Date__c, Status__c, Status_a__c FROM Program__c ORDER BY Program_Start_Date__c DESC NULLS LAST LIMIT 10"
+        result5 = sf.query(query5)
+        results["ALL_PROGRAMS"] = {
+            "query": query5,
+            "count": result5.get('totalSize', 0),
+            "records": [{"Id": r.get("Id"), "Name": r.get("Name"), "StartDate": r.get("Program_Start_Date__c")} for r in result5.get('records', [])]
+        }
+    except Exception as e5:
+        results["ALL_PROGRAMS"] = {"error": str(e5)}
+
+    # Get current date info
+    now = datetime.now()
+    quarter = (now.month - 1) // 3 + 1
+
+    print(json.dumps({
+        "success": True,
+        "currentDate": now.strftime("%Y-%m-%d"),
+        "currentQuarter": f"Q{quarter} {now.year}",
+        "results": results
+    }))
+
+except Exception as e:
+    import traceback
+    print(json.dumps({
+        "success": False,
+        "error": str(e),
+        "traceback": traceback.format_exc()
+    }))
+`;
+
+      const result = await salesforceService['executePythonScript'](scriptContent);
+      res.json(result);
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: `Failed to test quarter queries: ${error}`
+      });
+    }
+  });
+
   // SIMPLE endpoint to get all programs - uses exact working query
   app.get("/api/salesforce/programs-simple", async (req, res) => {
     try {
