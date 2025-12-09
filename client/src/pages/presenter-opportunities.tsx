@@ -279,6 +279,15 @@ function WorkshopCard({ workshop }: { workshop: Workshop }) {
             {signupMutation.isPending ? "Signing up..." : "Sign Up"}
           </Button>
         </div>
+
+        {/* Salesforce ID (debug) */}
+        {workshop.salesforceId && (
+          <div className="mt-3 pt-3 border-t border-gray-100">
+            <p className="text-xs text-gray-400 font-mono">
+              SF ID: {workshop.salesforceId}
+            </p>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
