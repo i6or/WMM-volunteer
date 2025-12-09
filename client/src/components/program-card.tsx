@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { type Program } from "@shared/schema";
-import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
@@ -15,21 +15,9 @@ export function ProgramCard({ program }: ProgramCardProps) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  // Fetch coach signups for this program
-  const { data: signups } = useQuery({
-    queryKey: ["/api/program-signups", { programId: program.id }],
-    queryFn: async () => {
-      const response = await fetch(`/api/program-signups?programId=${program.id}`, {
-        credentials: 'include'
-      });
-      if (!response.ok) return [];
-      return response.json();
-    },
-  });
-
-  // Calculate spots filled from actual signups
+  // Use numberOfCoaches from Salesforce data
   const totalSpots = 20; // Default max coaches per program
-  const filledSpots = signups?.length || 0;
+  const filledSpots = program.numberOfCoaches || 0;
   const availableSpots = Math.max(0, totalSpots - filledSpots);
 
   const signupMutation = useMutation({
@@ -42,7 +30,6 @@ export function ProgramCard({ program }: ProgramCardProps) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/programs"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/program-signups", { programId: program.id }] });
       toast({
         title: "Sign up successful!",
         description: `You've been registered as a coach for ${program.name}`,

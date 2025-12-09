@@ -62,8 +62,9 @@ export const programs = pgTable("programs", {
   programLeader: text("program_leader"), // Program_Leader__c (ID)
   programLeaderName: text("program_leader_name"), // Program_Leader_Full_Name__c
 
-  // Participants
+  // Participants & Coaches
   totalParticipants: integer("total_participants"), // Total_Participants__c
+  numberOfCoaches: integer("number_of_coaches"), // Number_of_Coaches_in_Program__c
 
   // Links
   zoomLink: text("zoom_link"), // Zoom_link__c

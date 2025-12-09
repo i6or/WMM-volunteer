@@ -41,7 +41,7 @@ const participantQuerySchema = z.object({
 });
 
 // Code version for debugging deployments
-const CODE_VERSION = "2024-12-09-v10-describe-program";
+const CODE_VERSION = "2024-12-09-v11-coach-count-from-sf";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Version check endpoint
@@ -90,10 +90,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Database migration endpoint - adds missing columns to programs table
+  app.post("/api/admin/migrate-programs-table", async (req, res) => {
+    try {
+      // Check current columns
+      const columnsResult = await db.execute(sql`
+        SELECT column_name FROM information_schema.columns
+        WHERE table_name = 'programs'
+      `);
+      const existingColumns = columnsResult.rows.map((r: any) => r.column_name);
+
+      const migrations: string[] = [];
+
+      // Add 'number_of_coaches' column if it doesn't exist
+      if (!existingColumns.includes('number_of_coaches')) {
+        await db.execute(sql`ALTER TABLE programs ADD COLUMN number_of_coaches integer`);
+        migrations.push("Added 'number_of_coaches' column");
+      }
+
+      res.json({
+        success: true,
+        existingColumns,
+        migrations: migrations.length > 0 ? migrations : ["No migrations needed - all columns exist"],
+        message: "Migration complete"
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        error: String(error)
+      });
+    }
+  });
+
   // ============================================
   // SIMPLE PROGRAMS ENDPOINTS - MINIMAL APPROACH
   // ============================================
-  
+
   // Get ALL programs - simplest possible, no filters, no complexity
   app.get("/api/programs/all", async (req, res) => {
     try {
@@ -172,7 +204,8 @@ else:
 query = """SELECT Id, Name, Program_Start_Date__c, Program_End_Date__c,
     Status__c, Status_a__c, Type__c, Format__c, Language__c,
     Workshop_Day__c, Workshop_Time__c, workshop_frequency__c, Number_of_Workshops__c,
-    Program_Leader_Full_Name__c, Total_Participants__c, Zoom_link__c, Program_Schedule_Link__c,
+    Program_Leader_Full_Name__c, Total_Participants__c, Number_of_Coaches_in_Program__c,
+    Zoom_link__c, Program_Schedule_Link__c,
     Workshop_Start_Date_Time__c, Program_Partner__r.Name
     FROM Program__c LIMIT 100"""
 result = sf.query(query)
@@ -1162,7 +1195,8 @@ else:
 query = """SELECT Id, Name, Program_Start_Date__c, Program_End_Date__c,
     Status__c, Status_a__c, Type__c, Format__c, Language__c,
     Workshop_Day__c, Workshop_Time__c, workshop_frequency__c, Number_of_Workshops__c,
-    Program_Leader_Full_Name__c, Total_Participants__c, Zoom_link__c, Program_Schedule_Link__c,
+    Program_Leader_Full_Name__c, Total_Participants__c, Number_of_Coaches_in_Program__c,
+    Zoom_link__c, Program_Schedule_Link__c,
     Workshop_Start_Date_Time__c, Program_Partner__r.Name
     FROM Program__c ${whereClause} LIMIT 100"""
 result = sf.query(query)

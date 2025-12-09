@@ -59,8 +59,9 @@ export class ProgramSyncService {
       programLeader: null,
       programLeaderName: (sfProgram as any).Program_Leader_Full_Name__c || null,
 
-      // Participants
+      // Participants & Coaches
       totalParticipants: (sfProgram as any).Total_Participants__c || null,
+      numberOfCoaches: (sfProgram as any).Number_of_Coaches_in_Program__c || null,
 
       // Links
       zoomLink: (sfProgram as any).Zoom_link__c || null,
