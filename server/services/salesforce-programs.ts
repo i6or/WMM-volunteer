@@ -130,8 +130,8 @@ try:
         )
     
     # Build date filter if needed
-    filter_by_quarter = ${filterByCurrentQuarter}
-    filter_by_next_60_days = ${filterByNext60Days}
+    filter_by_quarter = ${filterByCurrentQuarter ? 'True' : 'False'}
+    filter_by_next_60_days = ${filterByNext60Days ? 'True' : 'False'}
     
     if filter_by_next_60_days:
         date_filter = "Program_Start_Date__c >= TODAY AND Program_Start_Date__c <= NEXT_N_DAYS:60"
