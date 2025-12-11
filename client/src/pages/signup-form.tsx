@@ -48,9 +48,14 @@ export default function SignupForm() {
 
   const selectedPrograms = allPrograms?.filter(p => programIds.includes(p.id)) || [];
 
+  // Get Salesforce IDs from selected programs
+  const salesforceIds = selectedPrograms
+    .map(p => p.salesforceId)
+    .filter((id): id is string => !!id);
+
   // Fetch workshops directly from Salesforce using program's salesforceId
   const { data: workshops, isLoading: workshopsLoading } = useQuery({
-    queryKey: ["/api/salesforce/programs/workshops", selectedPrograms.map(p => p.salesforceId)],
+    queryKey: ["/api/salesforce/programs/workshops", salesforceIds],
     queryFn: async () => {
       // Fetch workshops from Salesforce for each selected program
       const allWorkshops: Array<{
@@ -60,10 +65,8 @@ export default function SignupForm() {
         topic?: string;
       }> = [];
 
-      for (const program of selectedPrograms) {
-        if (!program.salesforceId) continue;
-
-        const response = await fetch(`/api/salesforce/programs/${program.salesforceId}/workshops`, {
+      for (const sfId of salesforceIds) {
+        const response = await fetch(`/api/salesforce/programs/${sfId}/workshops`, {
           credentials: 'include'
         });
         if (response.ok) {
@@ -88,7 +91,7 @@ export default function SignupForm() {
         return new Date(a.date).getTime() - new Date(b.date).getTime();
       });
     },
-    enabled: selectedPrograms.length > 0 && selectedPrograms.some(p => p.salesforceId),
+    enabled: salesforceIds.length > 0,
   });
 
   const form = useForm<SignupFormData>({
