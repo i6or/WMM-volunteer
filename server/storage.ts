@@ -706,30 +706,33 @@ export class DatabaseStorage implements IStorage {
             sql`${programs.startDate} >= ${quarterStart.toISOString()} AND ${programs.startDate} <= ${quarterEnd.toISOString()}`
           );
           break;
+        case 'next_3_months':
+          // Programs starting in next 3 months
+          const threeMonthsLater = new Date(today.getFullYear(), today.getMonth() + 3, today.getDate());
+          conditions.push(
+            sql`${programs.startDate} >= ${today.toISOString()} AND ${programs.startDate} <= ${threeMonthsLater.toISOString()}`
+          );
+          break;
         case 'upcoming':
-          // Future programs only
+          // ALL future programs (no end limit)
           conditions.push(sql`${programs.startDate} >= ${today.toISOString()}`);
           break;
         case 'all':
           // No date filter
           break;
         default:
-          // Default to current quarter
-          const defQuarterMonth = Math.floor(today.getMonth() / 3) * 3;
-          const defQuarterStart = new Date(today.getFullYear(), defQuarterMonth, 1);
-          const defQuarterEnd = new Date(today.getFullYear(), defQuarterMonth + 3, 0);
+          // Default to next 3 months
+          const defThreeMonths = new Date(today.getFullYear(), today.getMonth() + 3, today.getDate());
           conditions.push(
-            sql`${programs.startDate} >= ${defQuarterStart.toISOString()} AND ${programs.startDate} <= ${defQuarterEnd.toISOString()}`
+            sql`${programs.startDate} >= ${today.toISOString()} AND ${programs.startDate} <= ${defThreeMonths.toISOString()}`
           );
       }
     } else {
-      // Default: show current quarter programs
+      // Default: show programs starting in next 3 months
       const today = new Date();
-      const quarterMonth = Math.floor(today.getMonth() / 3) * 3;
-      const quarterStart = new Date(today.getFullYear(), quarterMonth, 1);
-      const quarterEnd = new Date(today.getFullYear(), quarterMonth + 3, 0);
+      const threeMonthsLater = new Date(today.getFullYear(), today.getMonth() + 3, today.getDate());
       conditions.push(
-        sql`${programs.startDate} >= ${quarterStart.toISOString()} AND ${programs.startDate} <= ${quarterEnd.toISOString()}`
+        sql`${programs.startDate} >= ${today.toISOString()} AND ${programs.startDate} <= ${threeMonthsLater.toISOString()}`
       );
     }
 

@@ -13,7 +13,7 @@ import { type Program } from "@shared/schema";
 export default function Home() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("active"); // Default to Active programs
-  const [dateRangeFilter, setDateRangeFilter] = useState("upcoming"); // Default to upcoming programs
+  const [dateRangeFilter, setDateRangeFilter] = useState("next_3_months"); // Default to next 3 months
 
   // Fetch programs
   const { data: programs, isLoading } = useQuery({
@@ -131,11 +131,12 @@ export default function Home() {
               <div className="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-4">
                 <Select value={dateRangeFilter} onValueChange={setDateRangeFilter}>
                   <SelectTrigger className="w-48" data-testid="select-date-range-filter">
-                    <SelectValue placeholder="Upcoming" />
+                    <SelectValue placeholder="Next 3 Months" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="upcoming">Upcoming Programs</SelectItem>
+                    <SelectItem value="next_3_months">Next 3 Months</SelectItem>
                     <SelectItem value="current_quarter">Current Quarter</SelectItem>
+                    <SelectItem value="upcoming">All Upcoming</SelectItem>
                     <SelectItem value="all">All Programs</SelectItem>
                   </SelectContent>
                 </Select>
@@ -191,7 +192,7 @@ export default function Home() {
                 onClick={() => {
                   setSearchQuery("");
                   setStatusFilter("active");
-                  setDateRangeFilter("upcoming");
+                  setDateRangeFilter("next_3_months");
                 }}
                 data-testid="button-clear-filters"
               >
