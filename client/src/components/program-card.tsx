@@ -55,9 +55,23 @@ export function ProgramCard({ program }: ProgramCardProps) {
       case 'financial futures':
         return 'bg-green-100 text-green-800';
       case 'life launch':
+      case 'girls life launch':
         return 'bg-blue-100 text-blue-800';
       default:
         return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const getStatusColor = (status: string | null) => {
+    switch (status?.toLowerCase()) {
+      case 'active':
+        return 'bg-emerald-100 text-emerald-800 border-emerald-200';
+      case 'upcoming':
+        return 'bg-amber-100 text-amber-800 border-amber-200';
+      case 'completed':
+        return 'bg-slate-100 text-slate-600 border-slate-200';
+      default:
+        return 'bg-gray-100 text-gray-600 border-gray-200';
     }
   };
 
@@ -74,14 +88,21 @@ export function ProgramCard({ program }: ProgramCardProps) {
   return (
     <Card className="overflow-hidden hover:shadow-lg transition-shadow" data-testid={`card-program-${program.id}`}>
       <CardContent className="p-6">
-        {/* Type badge and Primary Program Partner */}
+        {/* Type badge, Status badge, and Primary Program Partner */}
         <div className="flex items-start justify-between mb-3">
           <div>
-            {program.programType && (
-              <Badge className={`mb-2 ${getTypeColor(program.programType)}`} data-testid={`badge-type-${program.id}`}>
-                {program.programType}
-              </Badge>
-            )}
+            <div className="flex flex-wrap gap-2 mb-2">
+              {program.programType && (
+                <Badge className={getTypeColor(program.programType)} data-testid={`badge-type-${program.id}`}>
+                  {program.programType}
+                </Badge>
+              )}
+              {program.status && (
+                <Badge variant="outline" className={`text-xs ${getStatusColor(program.status)}`} data-testid={`badge-status-${program.id}`}>
+                  {program.status.charAt(0).toUpperCase() + program.status.slice(1)}
+                </Badge>
+              )}
+            </div>
             <p className="text-sm text-muted-foreground" data-testid={`text-partner-${program.id}`}>
               {program.primaryProgramPartner || "Women's Money Matters"}
             </p>

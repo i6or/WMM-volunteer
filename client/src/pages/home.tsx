@@ -12,8 +12,8 @@ import { type Program } from "@shared/schema";
 
 export default function Home() {
   const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState("active"); // Default to Active programs
-  const [dateRangeFilter, setDateRangeFilter] = useState("next_3_months"); // Default to next 3 months
+  const [statusFilter, setStatusFilter] = useState("all"); // Default to all statuses
+  const [dateRangeFilter, setDateRangeFilter] = useState("current_quarter"); // Default to current quarter
 
   // Fetch programs
   const { data: programs, isLoading } = useQuery({
@@ -131,11 +131,11 @@ export default function Home() {
               <div className="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-4">
                 <Select value={dateRangeFilter} onValueChange={setDateRangeFilter}>
                   <SelectTrigger className="w-48" data-testid="select-date-range-filter">
-                    <SelectValue placeholder="Next 3 Months" />
+                    <SelectValue placeholder="Current Quarter" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="next_3_months">Next 3 Months</SelectItem>
                     <SelectItem value="current_quarter">Current Quarter</SelectItem>
+                    <SelectItem value="next_3_months">Next 3 Months</SelectItem>
                     <SelectItem value="upcoming">All Upcoming</SelectItem>
                     <SelectItem value="all">All Programs</SelectItem>
                   </SelectContent>
@@ -143,11 +143,11 @@ export default function Home() {
 
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
                   <SelectTrigger className="w-48" data-testid="select-status-filter">
-                    <SelectValue placeholder="Active" />
+                    <SelectValue placeholder="All Statuses" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="active">Active</SelectItem>
                     <SelectItem value="all">All Statuses</SelectItem>
+                    <SelectItem value="active">Active</SelectItem>
                     <SelectItem value="upcoming">Upcoming</SelectItem>
                     <SelectItem value="completed">Completed</SelectItem>
                   </SelectContent>
@@ -191,8 +191,8 @@ export default function Home() {
                 className="mt-4"
                 onClick={() => {
                   setSearchQuery("");
-                  setStatusFilter("active");
-                  setDateRangeFilter("next_3_months");
+                  setStatusFilter("all");
+                  setDateRangeFilter("current_quarter");
                 }}
                 data-testid="button-clear-filters"
               >
