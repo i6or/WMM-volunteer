@@ -41,7 +41,7 @@ const participantQuerySchema = z.object({
 });
 
 // Code version for debugging deployments
-const CODE_VERSION = "2024-12-11-v15-participant-integration";
+const CODE_VERSION = "2024-12-11-v16-sf-participant-create";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Version check endpoint
@@ -683,15 +683,19 @@ print(json.dumps({
           const sfProgramId = programResult.rows[0]?.salesforce_id;
 
           if (sfProgramId) {
-            // Create affiliate contact in Salesforce (async - don't block response)
-            createSalesforceAffiliateContact({
+            // Create Participant in Salesforce (async - don't block response)
+            // This will: 1. Find/create Contact, 2. Create Participant__c record
+            createSalesforceParticipant({
               firstName,
               lastName,
               email,
               phone,
               programSalesforceId: sfProgramId as string,
+              participantType: 'Coach Applicant',
+            }).then(sfResult => {
+              console.log(`[COACH-SIGNUP] SF Participant created for program ${sfProgramId}:`, sfResult);
             }).catch(error => {
-              console.error(`[COACH-SIGNUP] Failed to create SF affiliate contact for program ${sfProgramId}:`, error);
+              console.error(`[COACH-SIGNUP] Failed to create SF participant for program ${sfProgramId}:`, error);
             });
           }
         } catch (insertError) {
@@ -741,15 +745,20 @@ print(json.dumps({
     }
   });
 
-  // Helper function to create Salesforce affiliate contact
-  async function createSalesforceAffiliateContact(data: {
+  // Helper function to create Salesforce Participant record
+  // 1. Search for existing Contact by email
+  // 2. Create Contact if not found
+  // 3. Create Participant__c record linking Contact to Program
+  async function createSalesforceParticipant(data: {
     firstName: string;
     lastName: string;
     email: string;
     phone?: string;
     programSalesforceId: string;
+    participantType?: string; // "Coach Applicant" or "Presenter Applicant"
   }) {
     const config = salesforceService.config;
+    const participantType = data.participantType || 'Coach Applicant';
 
     const scriptContent = `
 import sys
@@ -769,29 +778,73 @@ if domain not in ['login', 'test'] and '.' not in domain:
 else:
     sf = Salesforce(username=username, password=password, security_token=security_token, domain=domain)
 
-# Create Affiliate Contact record
-# Note: The object name may be different - common names are Affiliate_Contact__c or npe5__Affiliation__c
+first_name = '${data.firstName.replace(/'/g, "\\'")}'
+last_name = '${data.lastName.replace(/'/g, "\\'")}'
+email = '${data.email.replace(/'/g, "\\'")}'
+phone = '${(data.phone || '').replace(/'/g, "\\'")}'
+program_id = '${data.programSalesforceId}'
+participant_type = '${participantType}'
+
+result = {"success": False}
+
 try:
-    result = sf.Affiliate_Contact__c.create({
-        'First_Name__c': '${data.firstName.replace(/'/g, "\\'")}',
-        'Last_Name__c': '${data.lastName.replace(/'/g, "\\'")}',
-        'Email__c': '${data.email.replace(/'/g, "\\'")}',
-        'Phone__c': '${(data.phone || '').replace(/'/g, "\\'")}',
-        'Program__c': '${data.programSalesforceId}',
-        'Role__c': 'Coach',
-        'Status__c': 'Active'
-    })
-    print(json.dumps({"success": True, "id": result['id']}))
+    # Step 1: Search for existing Contact by email
+    contact_query = sf.query(f"SELECT Id, FirstName, LastName, Email, Phone FROM Contact WHERE Email = '{email}' LIMIT 1")
+
+    contact_id = None
+    contact_created = False
+
+    if contact_query['totalSize'] > 0:
+        # Contact found
+        contact_id = contact_query['records'][0]['Id']
+        result['contactFound'] = True
+        result['contactId'] = contact_id
+    else:
+        # Step 2: Create new Contact
+        new_contact = sf.Contact.create({
+            'FirstName': first_name,
+            'LastName': last_name,
+            'Email': email,
+            'Phone': phone if phone else None
+        })
+        contact_id = new_contact['id']
+        contact_created = True
+        result['contactCreated'] = True
+        result['contactId'] = contact_id
+
+    # Step 3: Check if Participant already exists for this Contact + Program
+    existing_participant = sf.query(f"SELECT Id FROM Participant__c WHERE Client__c = '{contact_id}' AND Program__c = '{program_id}' LIMIT 1")
+
+    if existing_participant['totalSize'] > 0:
+        result['participantExists'] = True
+        result['participantId'] = existing_participant['records'][0]['Id']
+        result['success'] = True
+        result['message'] = 'Participant already registered for this program'
+    else:
+        # Step 4: Create Participant__c record
+        new_participant = sf.Participant__c.create({
+            'Client__c': contact_id,
+            'Program__c': program_id,
+            'Participant_Type2__c': participant_type
+        })
+        result['participantId'] = new_participant['id']
+        result['participantCreated'] = True
+        result['success'] = True
+        result['message'] = 'Participant created successfully'
+
 except Exception as e:
-    print(json.dumps({"success": False, "error": str(e)}))
+    result['error'] = str(e)
+    result['success'] = False
+
+print(json.dumps(result))
 `;
 
     try {
       const result = await salesforceService['executePythonScript'](scriptContent);
-      console.log('[COACH-SIGNUP] Salesforce affiliate contact result:', result);
+      console.log('[COACH-SIGNUP] Salesforce participant result:', result);
       return result;
     } catch (error) {
-      console.error('[COACH-SIGNUP] Salesforce affiliate contact error:', error);
+      console.error('[COACH-SIGNUP] Salesforce participant error:', error);
       throw error;
     }
   }
