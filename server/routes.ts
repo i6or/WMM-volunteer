@@ -41,7 +41,7 @@ const participantQuerySchema = z.object({
 });
 
 // Code version for debugging deployments
-const CODE_VERSION = "2024-12-11-v14-coach-signup-flow";
+const CODE_VERSION = "2024-12-11-v15-participant-integration";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Version check endpoint
@@ -799,6 +799,139 @@ except Exception as e:
   // ============================================
   // END COACH SIGNUPS
   // ============================================
+
+  // Explore Participant__c object fields in Salesforce
+  app.get("/api/salesforce/describe-participant", async (req, res) => {
+    const config = salesforceService.config;
+
+    const scriptContent = `
+import sys
+import os
+sys.path.append(os.path.expanduser('~/.pythonlibs'))
+
+from simple_salesforce import Salesforce
+import json
+
+domain = '${config.domain}'
+username = '${config.username}'
+password = '${config.password}'
+security_token = '${config.securityToken}'
+
+if domain not in ['login', 'test'] and '.' not in domain:
+    sf = Salesforce(username=username, password=password, security_token=security_token, instance_url=f"https://{domain}.my.salesforce.com")
+else:
+    sf = Salesforce(username=username, password=password, security_token=security_token, domain=domain)
+
+results = {}
+
+# Describe Participant__c object
+try:
+    desc = sf.Participant__c.describe()
+    fields = []
+    for f in desc['fields']:
+        field_info = {
+            'name': f['name'],
+            'label': f['label'],
+            'type': f['type'],
+            'required': not f['nillable'] and not f['defaultedOnCreate']
+        }
+        if f['type'] == 'picklist':
+            field_info['picklistValues'] = [p['value'] for p in f['picklistValues'] if p['active']]
+        if f['type'] == 'reference':
+            field_info['referenceTo'] = f['referenceTo']
+        fields.append(field_info)
+    results['Participant__c'] = {
+        'exists': True,
+        'fields': fields
+    }
+except Exception as e:
+    results['Participant__c'] = {'exists': False, 'error': str(e)}
+
+# Also check Contact for creating new contacts
+try:
+    contact_desc = sf.Contact.describe()
+    contact_fields = []
+    for f in contact_desc['fields']:
+        if f['name'] in ['Id', 'FirstName', 'LastName', 'Email', 'Phone', 'AccountId', 'MailingStreet', 'MailingCity', 'MailingState', 'MailingPostalCode']:
+            contact_fields.append({
+                'name': f['name'],
+                'label': f['label'],
+                'type': f['type'],
+                'required': not f['nillable'] and not f['defaultedOnCreate']
+            })
+    results['Contact'] = {
+        'exists': True,
+        'key_fields': contact_fields
+    }
+except Exception as e:
+    results['Contact'] = {'exists': False, 'error': str(e)}
+
+print(json.dumps(results))
+`;
+
+    try {
+      const result = await salesforceService['executePythonScript'](scriptContent);
+      res.json({ success: true, ...result });
+    } catch (error) {
+      res.status(500).json({ success: false, error: String(error) });
+    }
+  });
+
+  // Search for a Contact by email
+  app.get("/api/salesforce/search-contact", async (req, res) => {
+    const { email } = req.query;
+    if (!email) {
+      return res.status(400).json({ success: false, message: "Email is required" });
+    }
+
+    const config = salesforceService.config;
+    const scriptContent = `
+import sys
+import os
+sys.path.append(os.path.expanduser('~/.pythonlibs'))
+
+from simple_salesforce import Salesforce
+import json
+
+domain = '${config.domain}'
+username = '${config.username}'
+password = '${config.password}'
+security_token = '${config.securityToken}'
+
+if domain not in ['login', 'test'] and '.' not in domain:
+    sf = Salesforce(username=username, password=password, security_token=security_token, instance_url=f"https://{domain}.my.salesforce.com")
+else:
+    sf = Salesforce(username=username, password=password, security_token=security_token, domain=domain)
+
+email = '${(email as string).replace(/'/g, "\\'")}'
+
+# Search for contact by email
+result = sf.query(f"SELECT Id, FirstName, LastName, Email, Phone, AccountId FROM Contact WHERE Email = '{email}' LIMIT 1")
+
+if result['totalSize'] > 0:
+    contact = result['records'][0]
+    print(json.dumps({
+        "found": True,
+        "contact": {
+            "id": contact['Id'],
+            "firstName": contact.get('FirstName'),
+            "lastName": contact.get('LastName'),
+            "email": contact.get('Email'),
+            "phone": contact.get('Phone'),
+            "accountId": contact.get('AccountId')
+        }
+    }))
+else:
+    print(json.dumps({"found": False}))
+`;
+
+    try {
+      const result = await salesforceService['executePythonScript'](scriptContent);
+      res.json({ success: true, ...result });
+    } catch (error) {
+      res.status(500).json({ success: false, error: String(error) });
+    }
+  });
 
   // Salesforce connection test endpoint
   app.get("/api/salesforce/test", async (req, res) => {
