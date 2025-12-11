@@ -3,46 +3,24 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { type Program } from "@shared/schema";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
-import { useToast } from "@/hooks/use-toast";
+import { useLocation } from "wouter";
 
 interface ProgramCardProps {
   program: Program;
 }
 
 export function ProgramCard({ program }: ProgramCardProps) {
-  const queryClient = useQueryClient();
-  const { toast } = useToast();
+  const [, setLocation] = useLocation();
 
   // Use numberOfCoaches from Salesforce data
   const totalSpots = 20; // Default max coaches per program
   const filledSpots = program.numberOfCoaches || 0;
   const availableSpots = Math.max(0, totalSpots - filledSpots);
 
-  const signupMutation = useMutation({
-    mutationFn: async () => {
-      return apiRequest("POST", "/api/program-signups", {
-        programId: program.id,
-        role: "coach",
-        status: "confirmed"
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/programs"] });
-      toast({
-        title: "Sign up successful!",
-        description: `You've been registered as a coach for ${program.name}`,
-      });
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Sign up failed",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
+  // Navigate to signup form with this program pre-selected
+  const handleSignUp = () => {
+    setLocation(`/signup/form?programs=${program.id}`);
+  };
 
   const formatDate = (date: Date | string | null) => {
     if (!date) return "";
@@ -179,11 +157,11 @@ export function ProgramCard({ program }: ProgramCardProps) {
           <Button
             className="bg-green-500 text-white hover:bg-green-600"
             size="sm"
-            onClick={() => signupMutation.mutate()}
-            disabled={signupMutation.isPending || availableSpots <= 0}
+            onClick={handleSignUp}
+            disabled={availableSpots <= 0}
             data-testid={`button-signup-${program.id}`}
           >
-            {signupMutation.isPending ? "Signing up..." : "Sign Up"}
+            {availableSpots <= 0 ? "Full" : "Sign Up"}
           </Button>
         </div>
 
