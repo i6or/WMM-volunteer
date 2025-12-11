@@ -169,6 +169,21 @@ export const participantWorkshops = pgTable("participant_workshops", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Coach signups - tracks coach volunteer signups to programs
+export const coachSignups = pgTable("coach_signups", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  salesforceId: text("salesforce_id").unique(), // Affiliate_Contact__c ID in Salesforce
+  programId: varchar("program_id").notNull().references(() => programs.id),
+  firstName: text("first_name").notNull(),
+  lastName: text("last_name").notNull(),
+  email: text("email").notNull(),
+  phone: text("phone"),
+  comments: text("comments"),
+  status: text("status").default("confirmed"), // pending, confirmed, cancelled
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 export const insertVolunteerSchema = createInsertSchema(volunteers).omit({
   id: true,
   salesforceId: true,
@@ -219,6 +234,13 @@ export const insertParticipantWorkshopSchema = createInsertSchema(participantWor
   updatedAt: true,
 });
 
+export const insertCoachSignupSchema = createInsertSchema(coachSignups).omit({
+  id: true,
+  salesforceId: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 export type InsertVolunteer = z.infer<typeof insertVolunteerSchema>;
 export type Volunteer = typeof volunteers.$inferSelect;
 export type InsertOpportunity = z.infer<typeof insertOpportunitySchema>;
@@ -233,3 +255,5 @@ export type InsertParticipant = z.infer<typeof insertParticipantSchema>;
 export type Participant = typeof participants.$inferSelect;
 export type InsertParticipantWorkshop = z.infer<typeof insertParticipantWorkshopSchema>;
 export type ParticipantWorkshop = typeof participantWorkshops.$inferSelect;
+export type InsertCoachSignup = z.infer<typeof insertCoachSignupSchema>;
+export type CoachSignup = typeof coachSignups.$inferSelect;

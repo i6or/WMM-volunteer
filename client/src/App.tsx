@@ -9,6 +9,9 @@ import AdminDashboard from "@/pages/admin-dashboard";
 import PresenterOpportunities from "@/pages/presenter-opportunities";
 import MySignups from "@/pages/my-signups";
 import ProgramsTest from "@/pages/programs-test";
+import Signup from "@/pages/signup";
+import SignupForm from "@/pages/signup-form";
+import SignupConfirmation from "@/pages/signup-confirmation";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -21,6 +24,9 @@ function Router() {
       <Route path="/admin" component={AdminDashboard} />
       <Route path="/my-signups" component={MySignups} />
       <Route path="/programs-test" component={ProgramsTest} />
+      <Route path="/signup" component={Signup} />
+      <Route path="/signup/form" component={SignupForm} />
+      <Route path="/signup/confirmation" component={SignupConfirmation} />
       <Route component={NotFound} />
     </Switch>
   );

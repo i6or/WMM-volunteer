@@ -41,7 +41,7 @@ const participantQuerySchema = z.object({
 });
 
 // Code version for debugging deployments
-const CODE_VERSION = "2024-12-09-v13-sync-recent-programs";
+const CODE_VERSION = "2024-12-11-v14-coach-signup-flow";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Version check endpoint
@@ -81,6 +81,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
         existingColumns,
         migrations: migrations.length > 0 ? migrations : ["No migrations needed - all columns exist"],
         message: "Migration complete"
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        error: String(error)
+      });
+    }
+  });
+
+  // Database migration endpoint - creates coach_signups table
+  app.post("/api/admin/migrate-coach-signups-table", async (req, res) => {
+    try {
+      // Check if table exists
+      const tableCheck = await db.execute(sql`
+        SELECT EXISTS (
+          SELECT FROM information_schema.tables
+          WHERE table_name = 'coach_signups'
+        )
+      `);
+
+      const tableExists = tableCheck.rows[0]?.exists;
+
+      if (tableExists) {
+        return res.json({
+          success: true,
+          message: "coach_signups table already exists",
+          created: false
+        });
+      }
+
+      // Create the table
+      await db.execute(sql`
+        CREATE TABLE coach_signups (
+          id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+          salesforce_id TEXT UNIQUE,
+          program_id VARCHAR NOT NULL REFERENCES programs(id),
+          first_name TEXT NOT NULL,
+          last_name TEXT NOT NULL,
+          email TEXT NOT NULL,
+          phone TEXT,
+          comments TEXT,
+          status TEXT DEFAULT 'confirmed',
+          created_at TIMESTAMP DEFAULT NOW(),
+          updated_at TIMESTAMP DEFAULT NOW()
+        )
+      `);
+
+      res.json({
+        success: true,
+        message: "coach_signups table created successfully",
+        created: true
       });
     } catch (error) {
       res.status(500).json({
@@ -579,6 +630,175 @@ print(json.dumps({
     }
     res.status(204).send();
   });
+
+  // ============================================
+  // COACH SIGNUPS - New volunteer coach registration
+  // ============================================
+
+  // Create coach signup(s) for one or more programs
+  app.post("/api/coach-signups", async (req, res) => {
+    try {
+      const { firstName, lastName, email, phone, comments, programIds } = req.body;
+
+      if (!firstName || !lastName || !email || !programIds || programIds.length === 0) {
+        return res.status(400).json({
+          message: "firstName, lastName, email, and programIds are required"
+        });
+      }
+
+      // Validate that programs exist
+      const validProgramIds: string[] = [];
+      for (const programId of programIds) {
+        const programResult = await db.execute(sql`
+          SELECT id, salesforce_id, name FROM programs WHERE id = ${programId}
+        `);
+        if (programResult.rows.length > 0) {
+          validProgramIds.push(programId);
+        }
+      }
+
+      if (validProgramIds.length === 0) {
+        return res.status(404).json({ message: "No valid programs found" });
+      }
+
+      // Create coach signups for each program
+      const signups = [];
+      for (const programId of validProgramIds) {
+        try {
+          // Insert coach signup record using raw SQL (table may not exist yet)
+          const result = await db.execute(sql`
+            INSERT INTO coach_signups (id, program_id, first_name, last_name, email, phone, comments, status, created_at, updated_at)
+            VALUES (gen_random_uuid(), ${programId}, ${firstName}, ${lastName}, ${email}, ${phone || null}, ${comments || null}, 'confirmed', NOW(), NOW())
+            RETURNING *
+          `);
+
+          if (result.rows.length > 0) {
+            signups.push(result.rows[0]);
+          }
+
+          // Get program's Salesforce ID for the affiliate contact creation
+          const programResult = await db.execute(sql`
+            SELECT salesforce_id FROM programs WHERE id = ${programId}
+          `);
+          const sfProgramId = programResult.rows[0]?.salesforce_id;
+
+          if (sfProgramId) {
+            // Create affiliate contact in Salesforce (async - don't block response)
+            createSalesforceAffiliateContact({
+              firstName,
+              lastName,
+              email,
+              phone,
+              programSalesforceId: sfProgramId as string,
+            }).catch(error => {
+              console.error(`[COACH-SIGNUP] Failed to create SF affiliate contact for program ${sfProgramId}:`, error);
+            });
+          }
+        } catch (insertError) {
+          console.error(`[COACH-SIGNUP] Failed to insert signup for program ${programId}:`, insertError);
+        }
+      }
+
+      res.status(201).json({
+        success: true,
+        message: `Successfully signed up as coach for ${signups.length} program(s)`,
+        signups,
+        count: signups.length,
+      });
+    } catch (error) {
+      console.error('[COACH-SIGNUP] Error:', error);
+      res.status(500).json({ message: "Internal server error", error: String(error) });
+    }
+  });
+
+  // Get coach signups (optionally filtered by email or program)
+  app.get("/api/coach-signups", async (req, res) => {
+    try {
+      const { email, programId } = req.query;
+
+      let query = sql`SELECT cs.*, p.name as program_name, p.salesforce_id as program_sf_id
+                      FROM coach_signups cs
+                      LEFT JOIN programs p ON cs.program_id = p.id
+                      WHERE 1=1`;
+
+      if (email) {
+        query = sql`SELECT cs.*, p.name as program_name, p.salesforce_id as program_sf_id
+                    FROM coach_signups cs
+                    LEFT JOIN programs p ON cs.program_id = p.id
+                    WHERE cs.email = ${email}`;
+      } else if (programId) {
+        query = sql`SELECT cs.*, p.name as program_name, p.salesforce_id as program_sf_id
+                    FROM coach_signups cs
+                    LEFT JOIN programs p ON cs.program_id = p.id
+                    WHERE cs.program_id = ${programId}`;
+      }
+
+      const result = await db.execute(query);
+      res.json(result.rows);
+    } catch (error) {
+      console.error('[COACH-SIGNUP] Get error:', error);
+      res.status(500).json({ message: "Failed to fetch coach signups" });
+    }
+  });
+
+  // Helper function to create Salesforce affiliate contact
+  async function createSalesforceAffiliateContact(data: {
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone?: string;
+    programSalesforceId: string;
+  }) {
+    const config = salesforceService.config;
+
+    const scriptContent = `
+import sys
+import os
+sys.path.append(os.path.expanduser('~/.pythonlibs'))
+
+from simple_salesforce import Salesforce
+import json
+
+domain = '${config.domain}'
+username = '${config.username}'
+password = '${config.password}'
+security_token = '${config.securityToken}'
+
+if domain not in ['login', 'test'] and '.' not in domain:
+    sf = Salesforce(username=username, password=password, security_token=security_token, instance_url=f"https://{domain}.my.salesforce.com")
+else:
+    sf = Salesforce(username=username, password=password, security_token=security_token, domain=domain)
+
+# Create Affiliate Contact record
+# Note: The object name may be different - common names are Affiliate_Contact__c or npe5__Affiliation__c
+try:
+    result = sf.Affiliate_Contact__c.create({
+        'First_Name__c': '${data.firstName.replace(/'/g, "\\'")}',
+        'Last_Name__c': '${data.lastName.replace(/'/g, "\\'")}',
+        'Email__c': '${data.email.replace(/'/g, "\\'")}',
+        'Phone__c': '${(data.phone || '').replace(/'/g, "\\'")}',
+        'Program__c': '${data.programSalesforceId}',
+        'Role__c': 'Coach',
+        'Status__c': 'Active'
+    })
+    print(json.dumps({"success": True, "id": result['id']}))
+except Exception as e:
+    print(json.dumps({"success": False, "error": str(e)}))
+`;
+
+    try {
+      const result = await salesforceService['executePythonScript'](scriptContent);
+      console.log('[COACH-SIGNUP] Salesforce affiliate contact result:', result);
+      return result;
+    } catch (error) {
+      console.error('[COACH-SIGNUP] Salesforce affiliate contact error:', error);
+      throw error;
+    }
+  }
+
+  // ============================================
+  // END COACH SIGNUPS
+  // ============================================
 
   // Salesforce connection test endpoint
   app.get("/api/salesforce/test", async (req, res) => {
