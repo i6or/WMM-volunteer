@@ -13,7 +13,7 @@ import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
 import { ArrowLeft, Calendar, Clock, MapPin, Presentation } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { type Program, type Workshop } from "@shared/schema";
+import { type Program } from "@shared/schema";
 
 const signupFormSchema = z.object({
   firstName: z.string().min(1, "First name is required"),
@@ -48,23 +48,47 @@ export default function SignupForm() {
 
   const selectedPrograms = allPrograms?.filter(p => programIds.includes(p.id)) || [];
 
-  // Fetch workshops for selected programs
-  const { data: workshops } = useQuery({
-    queryKey: ["/api/workshops", programIds],
+  // Fetch workshops directly from Salesforce using program's salesforceId
+  const { data: workshops, isLoading: workshopsLoading } = useQuery({
+    queryKey: ["/api/salesforce/programs/workshops", selectedPrograms.map(p => p.salesforceId)],
     queryFn: async () => {
-      // Fetch workshops for each selected program
-      const allWorkshops: Workshop[] = [];
-      for (const programId of programIds) {
-        const response = await fetch(`/api/workshops?programId=${programId}`, { credentials: 'include' });
+      // Fetch workshops from Salesforce for each selected program
+      const allWorkshops: Array<{
+        id: string;
+        name: string;
+        date: string;
+        topic?: string;
+      }> = [];
+
+      for (const program of selectedPrograms) {
+        if (!program.salesforceId) continue;
+
+        const response = await fetch(`/api/salesforce/programs/${program.salesforceId}/workshops`, {
+          credentials: 'include'
+        });
         if (response.ok) {
-          const programWorkshops = await response.json() as Workshop[];
-          allWorkshops.push(...programWorkshops);
+          const result = await response.json();
+          if (result.success && result.workshops) {
+            // Map Salesforce workshop data
+            const programWorkshops = result.workshops.map((w: any) => ({
+              id: w.Id,
+              name: w.Name || w.Topic__c || `Workshop`,
+              date: w.Date__c || w.Workshop_Date__c,
+              topic: w.Topic__c,
+            }));
+            allWorkshops.push(...programWorkshops);
+          }
         }
       }
+
       // Sort by date
-      return allWorkshops.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+      return allWorkshops.sort((a, b) => {
+        if (!a.date) return 1;
+        if (!b.date) return -1;
+        return new Date(a.date).getTime() - new Date(b.date).getTime();
+      });
     },
-    enabled: programIds.length > 0,
+    enabled: selectedPrograms.length > 0 && selectedPrograms.some(p => p.salesforceId),
   });
 
   const form = useForm<SignupFormData>({
@@ -210,33 +234,37 @@ export default function SignupForm() {
         </Card>
 
         {/* Workshop Schedule */}
-        {workshops && workshops.length > 0 && (
+        {(workshopsLoading || (workshops && workshops.length > 0)) && (
           <Card className="mb-6">
             <CardContent className="p-6">
               <h3 className="font-semibold text-lg mb-4 flex items-center">
                 <Presentation className="h-5 w-5 mr-2" />
                 Workshop Schedule
               </h3>
-              <div className="space-y-3">
-                {workshops.map((workshop, index) => (
-                  <div
-                    key={workshop.id}
-                    className="flex items-start gap-4 py-2 border-b border-gray-100 last:border-0"
-                  >
-                    <div className="flex-shrink-0 w-8 h-8 bg-green-100 text-green-700 rounded-full flex items-center justify-center text-sm font-medium">
-                      {index + 1}
+              {workshopsLoading ? (
+                <p className="text-sm text-muted-foreground">Loading workshops...</p>
+              ) : (
+                <div className="space-y-3">
+                  {workshops?.map((workshop, index) => (
+                    <div
+                      key={workshop.id}
+                      className="flex items-start gap-4 py-2 border-b border-gray-100 last:border-0"
+                    >
+                      <div className="flex-shrink-0 w-8 h-8 bg-green-100 text-green-700 rounded-full flex items-center justify-center text-sm font-medium">
+                        {index + 1}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-sm truncate">
+                          {workshop.topic || workshop.name || `Workshop ${index + 1}`}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          {formatDate(workshop.date)}
+                        </p>
+                      </div>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-sm truncate">
-                        {workshop.name || workshop.title || `Workshop ${index + 1}`}
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        {formatDate(workshop.date)}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         )}
