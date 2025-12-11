@@ -36,7 +36,7 @@ export default function SignupForm() {
   // Parse program IDs from URL
   const programIds = new URLSearchParams(search).get('programs')?.split(',') || [];
 
-  // Fetch selected programs
+  // Fetch programs from local database
   const { data: allPrograms } = useQuery({
     queryKey: ["/api/programs"],
     queryFn: async () => {
@@ -53,46 +53,42 @@ export default function SignupForm() {
     .map(p => p.salesforceId)
     .filter((id): id is string => !!id);
 
-  // Fetch workshops directly from Salesforce using program's salesforceId
-  const { data: workshops, isLoading: workshopsLoading } = useQuery({
-    queryKey: ["/api/salesforce/programs/workshops", salesforceIds],
+  // Fetch programs with workshops directly from Salesforce
+  const { data: programsWithWorkshops, isLoading: workshopsLoading } = useQuery({
+    queryKey: ["/api/salesforce/programs-with-workshops"],
     queryFn: async () => {
-      // Fetch workshops from Salesforce for each selected program
-      const allWorkshops: Array<{
-        id: string;
-        name: string;
-        date: string;
-        topic?: string;
-      }> = [];
-
-      for (const sfId of salesforceIds) {
-        const response = await fetch(`/api/salesforce/programs/${sfId}/workshops`, {
-          credentials: 'include'
-        });
-        if (response.ok) {
-          const result = await response.json();
-          if (result.success && result.workshops) {
-            // Map Salesforce workshop data
-            const programWorkshops = result.workshops.map((w: any) => ({
-              id: w.Id,
-              name: w.Name || w.Topic__c || `Workshop`,
-              date: w.Date__c || w.Workshop_Date__c,
-              topic: w.Topic__c,
-            }));
-            allWorkshops.push(...programWorkshops);
-          }
-        }
-      }
-
-      // Sort by date
-      return allWorkshops.sort((a, b) => {
-        if (!a.date) return 1;
-        if (!b.date) return -1;
-        return new Date(a.date).getTime() - new Date(b.date).getTime();
+      const response = await fetch('/api/salesforce/programs-with-workshops', {
+        credentials: 'include'
       });
+      if (!response.ok) throw new Error('Failed to fetch programs with workshops');
+      const result = await response.json();
+      return result.data as Array<{
+        program: { Id: string; Name: string };
+        workshops: Array<{
+          Id: string;
+          Name: string;
+          Topic__c?: string;
+          Date__c?: string;
+          Workshop_Date__c?: string;
+        }>;
+      }>;
     },
-    enabled: salesforceIds.length > 0,
   });
+
+  // Find workshops for our selected programs by matching Salesforce IDs
+  const workshops = programsWithWorkshops
+    ?.filter(pw => salesforceIds.includes(pw.program.Id))
+    .flatMap(pw => pw.workshops.map(w => ({
+      id: w.Id,
+      name: w.Name || w.Topic__c || 'Workshop',
+      date: w.Date__c || w.Workshop_Date__c || '',
+      topic: w.Topic__c,
+    })))
+    .sort((a, b) => {
+      if (!a.date) return 1;
+      if (!b.date) return -1;
+      return new Date(a.date).getTime() - new Date(b.date).getTime();
+    }) || [];
 
   const form = useForm<SignupFormData>({
     resolver: zodResolver(signupFormSchema),
@@ -237,18 +233,18 @@ export default function SignupForm() {
         </Card>
 
         {/* Workshop Schedule */}
-        {(workshopsLoading || (workshops && workshops.length > 0)) && (
+        {(workshopsLoading || workshops.length > 0) && (
           <Card className="mb-6">
             <CardContent className="p-6">
               <h3 className="font-semibold text-lg mb-4 flex items-center">
                 <Presentation className="h-5 w-5 mr-2" />
                 Workshop Schedule
               </h3>
-              {workshopsLoading ? (
+              {workshopsLoading && workshops.length === 0 ? (
                 <p className="text-sm text-muted-foreground">Loading workshops...</p>
               ) : (
                 <div className="space-y-3">
-                  {workshops?.map((workshop, index) => (
+                  {workshops.map((workshop, index) => (
                     <div
                       key={workshop.id}
                       className="flex items-start gap-4 py-2 border-b border-gray-100 last:border-0"
