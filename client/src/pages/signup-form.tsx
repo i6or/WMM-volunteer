@@ -53,42 +53,45 @@ export default function SignupForm() {
     .map(p => p.salesforceId)
     .filter((id): id is string => !!id);
 
-  // Fetch programs with workshops directly from Salesforce
-  const { data: programsWithWorkshops, isLoading: workshopsLoading } = useQuery({
-    queryKey: ["/api/salesforce/programs-with-workshops"],
+  // Fetch workshops directly from Salesforce for selected program
+  const { data: workshopsData, isLoading: workshopsLoading } = useQuery({
+    queryKey: ["/api/salesforce/programs/workshops", salesforceIds[0]],
     queryFn: async () => {
-      const response = await fetch('/api/salesforce/programs-with-workshops', {
+      if (!salesforceIds[0]) return [];
+
+      const response = await fetch(`/api/salesforce/programs/${salesforceIds[0]}/workshops`, {
         credentials: 'include'
       });
-      if (!response.ok) throw new Error('Failed to fetch programs with workshops');
+      if (!response.ok) throw new Error('Failed to fetch workshops');
       const result = await response.json();
-      return result.data as Array<{
-        program: { Id: string; Name: string };
-        workshops: Array<{
+      console.log('[Workshops] API response:', result);
+
+      if (result.success && result.workshops) {
+        return result.workshops as Array<{
           Id: string;
           Name: string;
-          Topic__c?: string;
-          Date__c?: string;
-          Workshop_Date__c?: string;
+          Date_Time__c?: string;
+          Presenter__c?: string;
+          Site_Name__c?: string;
         }>;
-      }>;
+      }
+      return [];
     },
+    enabled: salesforceIds.length > 0,
   });
 
-  // Find workshops for our selected programs by matching Salesforce IDs
-  const workshops = programsWithWorkshops
-    ?.filter(pw => salesforceIds.includes(pw.program.Id))
-    .flatMap(pw => pw.workshops.map(w => ({
+  // Map workshop data to display format
+  const workshops = (workshopsData || [])
+    .map(w => ({
       id: w.Id,
-      name: w.Name || w.Topic__c || 'Workshop',
-      date: w.Date__c || w.Workshop_Date__c || '',
-      topic: w.Topic__c,
-    })))
+      name: w.Name || 'Workshop',
+      date: w.Date_Time__c || '',
+    }))
     .sort((a, b) => {
       if (!a.date) return 1;
       if (!b.date) return -1;
       return new Date(a.date).getTime() - new Date(b.date).getTime();
-    }) || [];
+    });
 
   const form = useForm<SignupFormData>({
     resolver: zodResolver(signupFormSchema),
