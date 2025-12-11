@@ -71,6 +71,8 @@ export default function SignupForm() {
           Id: string;
           Name: string;
           Date_Time__c?: string;
+          Date__c?: string;
+          Workshop_Type__c?: string;
           Presenter__c?: string;
           Site_Name__c?: string;
         }>;
@@ -84,8 +86,8 @@ export default function SignupForm() {
   const workshops = (workshopsData || [])
     .map(w => ({
       id: w.Id,
-      name: w.Name || 'Workshop',
-      date: w.Date_Time__c || '',
+      name: w.Workshop_Type__c || w.Name || 'Workshop',
+      date: w.Date__c || w.Date_Time__c || '',
     }))
     .sort((a, b) => {
       if (!a.date) return 1;
@@ -257,7 +259,7 @@ export default function SignupForm() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="font-medium text-sm truncate">
-                          {workshop.topic || workshop.name || `Workshop ${index + 1}`}
+                          {workshop.name || `Workshop ${index + 1}`}
                         </p>
                         <p className="text-sm text-muted-foreground">
                           {formatDate(workshop.date)}

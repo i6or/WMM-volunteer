@@ -256,19 +256,21 @@ try:
         )
     
     # Query Workshops for this Program
-    # Using only fields that actually exist in Workshop__c
+    # Including Workshop_Type__c and Date__c based on actual SF schema
     workshops_query1 = f"""
         SELECT Id, Name, Program__c,
-               Date_Time__c, Presenter__c, Site_Name__c
+               Date_Time__c, Date__c, Workshop_Type__c,
+               Presenter__c, Site_Name__c
         FROM Workshop__c
         WHERE Program__c = '{programId}'
-        ORDER BY Date_Time__c DESC NULLS LAST
+        ORDER BY Date_Time__c ASC NULLS LAST
     """
 
     # Alternative: try without ORDER BY
     workshops_query2 = f"""
         SELECT Id, Name, Program__c,
-               Date_Time__c, Presenter__c, Site_Name__c
+               Date_Time__c, Date__c, Workshop_Type__c,
+               Presenter__c, Site_Name__c
         FROM Workshop__c
         WHERE Program__c = '{programId}'
     """
