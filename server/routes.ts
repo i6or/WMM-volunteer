@@ -32,6 +32,7 @@ const workshopQuerySchema = z.object({
   programId: z.string().optional(),
   status: z.string().optional(),
   search: z.string().optional(),
+  programStatus: z.string().optional(), // Filter workshops by program status (default: 'active')
 });
 
 const participantQuerySchema = z.object({

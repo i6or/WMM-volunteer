@@ -38,7 +38,7 @@ export interface IStorage {
   createWorkshop(workshop: InsertWorkshop): Promise<Workshop>;
   updateWorkshop(id: string, workshop: Partial<Workshop>): Promise<Workshop | undefined>;
   deleteWorkshop(id: string): Promise<boolean>;
-  getAllWorkshops(filters?: { programId?: string; status?: string; search?: string }): Promise<Workshop[]>;
+  getAllWorkshops(filters?: { programId?: string; status?: string; search?: string; programStatus?: string }): Promise<Workshop[]>;
 
   // Participant operations
   getParticipant(id: string): Promise<Participant | undefined>;
@@ -775,7 +775,7 @@ export class DatabaseStorage implements IStorage {
     return (result.rowCount || 0) > 0;
   }
 
-  async getAllWorkshops(filters?: { programId?: string; status?: string; search?: string }): Promise<Workshop[]> {
+  async getAllWorkshops(filters?: { programId?: string; status?: string; search?: string; programStatus?: string }): Promise<Workshop[]> {
     let conditions = [];
 
     // By default, only show upcoming workshops (date >= today)
@@ -792,6 +792,18 @@ export class DatabaseStorage implements IStorage {
     if (filters?.search) {
       conditions.push(
         sql`${workshops.name} ILIKE ${'%' + filters.search + '%'} OR ${workshops.title} ILIKE ${'%' + filters.search + '%'} OR ${workshops.description} ILIKE ${'%' + filters.search + '%'}`
+      );
+    }
+
+    // Filter by program status - only show workshops from active programs by default
+    if (filters?.programStatus && filters.programStatus !== "all") {
+      conditions.push(
+        sql`${workshops.programId} IN (SELECT id FROM ${programs} WHERE status = ${filters.programStatus})`
+      );
+    } else {
+      // Default: only show workshops from active programs
+      conditions.push(
+        sql`${workshops.programId} IN (SELECT id FROM ${programs} WHERE status = 'active')`
       );
     }
 
