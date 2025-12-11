@@ -41,7 +41,7 @@ const participantQuerySchema = z.object({
 });
 
 // Code version for debugging deployments
-const CODE_VERSION = "2024-12-11-v16-sf-participant-create";
+const CODE_VERSION = "2024-12-11-v17-lead-if-no-contact";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Version check endpoint
@@ -745,10 +745,10 @@ print(json.dumps({
     }
   });
 
-  // Helper function to create Salesforce Participant record
-  // 1. Search for existing Contact by email
-  // 2. Create Contact if not found
-  // 3. Create Participant__c record linking Contact to Program
+  // Helper function to create Salesforce Participant or Lead
+  // 1. Search for existing Contact by email OR phone
+  // 2. If Contact found → Create Participant__c record
+  // 3. If Contact NOT found → Create Lead instead
   async function createSalesforceParticipant(data: {
     firstName: string;
     lastName: string;
@@ -788,49 +788,68 @@ participant_type = '${participantType}'
 result = {"success": False}
 
 try:
-    # Step 1: Search for existing Contact by email
-    contact_query = sf.query(f"SELECT Id, FirstName, LastName, Email, Phone FROM Contact WHERE Email = '{email}' LIMIT 1")
-
+    # Step 1: Search for existing Contact by email OR phone
     contact_id = None
-    contact_created = False
 
-    if contact_query['totalSize'] > 0:
-        # Contact found
-        contact_id = contact_query['records'][0]['Id']
+    # First try email match
+    if email:
+        contact_query = sf.query(f"SELECT Id, FirstName, LastName, Email, Phone FROM Contact WHERE Email = '{email}' LIMIT 1")
+        if contact_query['totalSize'] > 0:
+            contact_id = contact_query['records'][0]['Id']
+            result['contactFoundBy'] = 'email'
+
+    # If not found by email, try phone match
+    if not contact_id and phone:
+        # Clean phone for comparison (remove common formatting)
+        phone_query = sf.query(f"SELECT Id, FirstName, LastName, Email, Phone FROM Contact WHERE Phone = '{phone}' LIMIT 1")
+        if phone_query['totalSize'] > 0:
+            contact_id = phone_query['records'][0]['Id']
+            result['contactFoundBy'] = 'phone'
+
+    if contact_id:
+        # Contact found - create Participant
         result['contactFound'] = True
         result['contactId'] = contact_id
+
+        # Check if Participant already exists for this Contact + Program
+        existing_participant = sf.query(f"SELECT Id FROM Participant__c WHERE Client__c = '{contact_id}' AND Program__c = '{program_id}' LIMIT 1")
+
+        if existing_participant['totalSize'] > 0:
+            result['participantExists'] = True
+            result['participantId'] = existing_participant['records'][0]['Id']
+            result['success'] = True
+            result['message'] = 'Participant already registered for this program'
+        else:
+            # Create Participant__c record
+            new_participant = sf.Participant__c.create({
+                'Client__c': contact_id,
+                'Program__c': program_id,
+                'Participant_Type2__c': participant_type
+            })
+            result['participantId'] = new_participant['id']
+            result['participantCreated'] = True
+            result['success'] = True
+            result['message'] = 'Participant created successfully'
     else:
-        # Step 2: Create new Contact
-        new_contact = sf.Contact.create({
+        # Contact NOT found - create Lead instead
+        # Get program name for lead description
+        program_query = sf.query(f"SELECT Name FROM Program__c WHERE Id = '{program_id}' LIMIT 1")
+        program_name = program_query['records'][0]['Name'] if program_query['totalSize'] > 0 else 'Unknown Program'
+
+        new_lead = sf.Lead.create({
             'FirstName': first_name,
             'LastName': last_name,
             'Email': email,
-            'Phone': phone if phone else None
+            'Phone': phone if phone else None,
+            'Company': 'n/a',
+            'Status': 'Interested',
+            'LeadSource': 'Volunteer App',
+            'Description': f'Signed up as {participant_type} for program: {program_name} (ID: {program_id})'
         })
-        contact_id = new_contact['id']
-        contact_created = True
-        result['contactCreated'] = True
-        result['contactId'] = contact_id
-
-    # Step 3: Check if Participant already exists for this Contact + Program
-    existing_participant = sf.query(f"SELECT Id FROM Participant__c WHERE Client__c = '{contact_id}' AND Program__c = '{program_id}' LIMIT 1")
-
-    if existing_participant['totalSize'] > 0:
-        result['participantExists'] = True
-        result['participantId'] = existing_participant['records'][0]['Id']
+        result['leadCreated'] = True
+        result['leadId'] = new_lead['id']
         result['success'] = True
-        result['message'] = 'Participant already registered for this program'
-    else:
-        # Step 4: Create Participant__c record
-        new_participant = sf.Participant__c.create({
-            'Client__c': contact_id,
-            'Program__c': program_id,
-            'Participant_Type2__c': participant_type
-        })
-        result['participantId'] = new_participant['id']
-        result['participantCreated'] = True
-        result['success'] = True
-        result['message'] = 'Participant created successfully'
+        result['message'] = 'Lead created - no matching Contact found'
 
 except Exception as e:
     result['error'] = str(e)
