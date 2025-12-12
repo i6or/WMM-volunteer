@@ -2092,6 +2092,69 @@ print(json.dumps({
     }
   });
 
+  // Admin endpoint to delete old programs (before current year)
+  app.delete("/api/admin/programs/cleanup", async (req, res) => {
+    try {
+      const currentYear = new Date().getFullYear();
+      const cutoffDate = new Date(`${currentYear}-01-01`);
+
+      // Find old programs
+      const allPrograms = await storage.getAllPrograms({ dateRange: 'all', status: 'all' });
+      const oldPrograms = allPrograms.filter(p => {
+        if (!p.startDate) return false;
+        return new Date(p.startDate) < cutoffDate;
+      });
+
+      console.log(`[Cleanup] Found ${oldPrograms.length} programs before ${currentYear}`);
+
+      if (oldPrograms.length === 0) {
+        return res.json({
+          success: true,
+          message: 'No old programs to delete',
+          deleted: 0
+        });
+      }
+
+      // Delete each old program (this will handle cascading deletes via storage)
+      let deletedCount = 0;
+      const deletedPrograms: string[] = [];
+
+      for (const program of oldPrograms) {
+        try {
+          // First delete associated workshops
+          const programWorkshops = await storage.getAllWorkshops({ programId: program.id, programStatus: 'all' });
+          for (const workshop of programWorkshops) {
+            await storage.deleteWorkshop(workshop.id);
+          }
+
+          // Then delete the program
+          const deleted = await storage.deleteProgram(program.id);
+          if (deleted) {
+            deletedCount++;
+            const year = program.startDate ? new Date(program.startDate).getFullYear() : 'unknown';
+            deletedPrograms.push(`[${year}] ${program.name}`);
+          }
+        } catch (err) {
+          console.error(`[Cleanup] Failed to delete program ${program.id}:`, err);
+        }
+      }
+
+      res.json({
+        success: true,
+        message: `Deleted ${deletedCount} programs from before ${currentYear}`,
+        deleted: deletedCount,
+        programs: deletedPrograms
+      });
+    } catch (error) {
+      console.error('[Cleanup] Error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to cleanup old programs',
+        error: String(error)
+      });
+    }
+  });
+
   app.get("/api/programs/:id", async (req, res) => {
     const program = await storage.getProgram(req.params.id);
     if (!program) {
