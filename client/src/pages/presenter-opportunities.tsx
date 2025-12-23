@@ -343,8 +343,9 @@ function WorkshopCard({
   const filledSpots = 0;
   const availableSpots = Math.max(0, totalSpots - filledSpots);
 
-  // Use workshop.type if available, otherwise fall back to name
-  const workshopType = workshop.type || workshop.name;
+  // Use workshop.type as the main title (required field from SF)
+  // This is the workshop type without program name (e.g., "What is Money?")
+  const workshopType = workshop.type || "Workshop";
 
   return (
     <Card className={`overflow-hidden hover:shadow-lg transition-shadow ${isSelected ? 'ring-2 ring-green-500' : ''}`} data-testid={`card-workshop-${workshop.id}`}>
@@ -364,12 +365,14 @@ function WorkshopCard({
               Select for bulk signup
             </label>
           </div>
-          <Badge className="bg-blue-100 text-blue-800" data-testid={`badge-topic-${workshop.id}`}>
-            {workshop.topic || "Workshop"}
-          </Badge>
+          {workshop.topic && (
+            <Badge className="bg-blue-100 text-blue-800" data-testid={`badge-topic-${workshop.id}`}>
+              {workshop.topic}
+            </Badge>
+          )}
         </div>
 
-        {/* Workshop Type (replaces workshop name) */}
+        {/* Workshop Type (main title - from SF Type field, no program name) */}
         <h3 className="font-semibold text-foreground mb-1 text-lg" data-testid={`text-type-${workshop.id}`}>
           {workshopType}
         </h3>
@@ -422,12 +425,6 @@ function WorkshopCard({
             </div>
           )}
 
-          {/* Description */}
-          {workshop.description && (
-            <p className="text-sm text-muted-foreground mt-2" data-testid={`text-description-${workshop.id}`}>
-              {workshop.description}
-            </p>
-          )}
         </div>
 
         {/* Spots and Action button */}

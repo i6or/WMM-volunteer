@@ -1884,6 +1884,8 @@ print(json.dumps({
 
           const workshopName = sfWorkshop.Name || "Unnamed Workshop";
           const workshopType = (sfWorkshop as any).Workshop_Type__c || null;
+          // Topic field - try both possible field names
+          const workshopTopic = (sfWorkshop as any).Topic__c || (sfWorkshop as any).Workshop_Topic__c || null;
 
           // Use RAW SQL with UPSERT (bypasses Drizzle schema)
           await db.execute(sql`
@@ -1897,9 +1899,9 @@ print(json.dumps({
               ${dbProgramId},
               ${workshopName},
               ${workshopName},
-              NULL,
+              ${workshopTopic},
               ${workshopType},
-              ${'Workshop: ' + workshopName},
+              NULL,
               ${workshopDate},
               ${startTime},
               ${'5:00 PM'},
@@ -1913,6 +1915,7 @@ print(json.dumps({
             ON CONFLICT (salesforce_id) DO UPDATE SET
               name = EXCLUDED.name,
               title = EXCLUDED.title,
+              topic = EXCLUDED.topic,
               type = EXCLUDED.type,
               description = EXCLUDED.description,
               date = EXCLUDED.date,

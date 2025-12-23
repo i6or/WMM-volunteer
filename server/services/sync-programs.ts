@@ -102,16 +102,18 @@ export class ProgramSyncService {
     const workshopName = sfWorkshop.Name || "Unnamed Workshop";
     // Workshop_Type__c contains the workshop type (e.g., "What is Money?", "Managing Your Money")
     const workshopType = (sfWorkshop as any).Workshop_Type__c || null;
+    // Topic field - try both possible field names
+    const workshopTopic = (sfWorkshop as any).Topic__c || (sfWorkshop as any).Workshop_Topic__c || null;
 
     return {
       salesforceId: sfWorkshop.Id,
       programId: programId,
-      name: workshopName,
-      title: workshopName, // Same as name since no topic field
-      topic: null, // Workshop_Topic__c doesn't exist
-      type: workshopType, // Workshop Type from Salesforce
+      name: workshopName, // Keep for internal reference, but don't display
+      title: workshopName, // Legacy field
+      topic: workshopTopic, // Topic from Salesforce (newly created field)
+      type: workshopType, // Workshop Type from Salesforce (e.g., "What is Money?")
       format: null, // Will be inherited from program if needed
-      description: `Workshop: ${workshopName}`,
+      description: null, // Remove redundant description that includes workshop name
       date: workshopDate || new Date(),
       startTime: startTime,
       endTime: "5:00 PM", // Default - not available
