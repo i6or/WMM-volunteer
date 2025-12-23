@@ -2,10 +2,12 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Search, Calendar, Clock, MapPin, Users, Presentation, CheckSquare } from "lucide-react";
 import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
@@ -18,6 +20,9 @@ export default function PresenterOpportunities() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [selectedWorkshops, setSelectedWorkshops] = useState<Set<string>>(new Set());
+  const [pendingSignups, setPendingSignups] = useState<Set<string>>(new Set()); // Workshops added to signup list
+  const [showSignupForm, setShowSignupForm] = useState(false);
+  const [formData, setFormData] = useState({ firstName: "", lastName: "", email: "" });
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -138,29 +143,50 @@ export default function PresenterOpportunities() {
           </CardContent>
         </Card>
 
-        {/* Bulk Signup Button */}
-        {selectedWorkshops.size > 0 && (
-          <Card className="mb-6 border-green-500 bg-green-50">
+        {/* Pending Signups Banner */}
+        {pendingSignups.size > 0 && (
+          <Card className="mb-6 border-blue-500 bg-blue-50">
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <CheckSquare className="h-5 w-5 text-green-600" />
-                  <span className="font-medium text-green-900">
-                    {selectedWorkshops.size} workshop{selectedWorkshops.size !== 1 ? 's' : ''} selected
+                  <CheckSquare className="h-5 w-5 text-blue-600" />
+                  <span className="font-medium text-blue-900">
+                    {pendingSignups.size} workshop{pendingSignups.size !== 1 ? 's' : ''} in your signup list
                   </span>
                 </div>
-                <BulkSignupButton
-                  selectedWorkshopIds={Array.from(selectedWorkshops)}
-                  workshops={workshops || []}
-                  onSuccess={() => {
-                    setSelectedWorkshops(new Set());
-                    queryClient.invalidateQueries({ queryKey: ["/api/workshops"] });
-                  }}
-                />
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPendingSignups(new Set())}
+                  >
+                    Clear
+                  </Button>
+                  <Button
+                    onClick={() => setShowSignupForm(true)}
+                    className="bg-blue-600 hover:bg-blue-700"
+                  >
+                    Complete Signup
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>
         )}
+
+        {/* Signup Form Dialog */}
+        <SignupFormDialog
+          open={showSignupForm}
+          onOpenChange={setShowSignupForm}
+          pendingWorkshopIds={Array.from(pendingSignups)}
+          workshops={workshops || []}
+          onSuccess={() => {
+            setPendingSignups(new Set());
+            setShowSignupForm(false);
+            setFormData({ firstName: "", lastName: "", email: "" });
+            queryClient.invalidateQueries({ queryKey: ["/api/workshops"] });
+          }}
+        />
 
         {/* Workshop Cards */}
         {isLoading ? (
@@ -172,6 +198,7 @@ export default function PresenterOpportunities() {
                 key={workshop.id}
                 workshop={workshop}
                 isSelected={selectedWorkshops.has(workshop.id)}
+                isPendingSignup={pendingSignups.has(workshop.id)}
                 onSelectChange={(selected) => {
                   const newSelected = new Set(selectedWorkshops);
                   if (selected) {
@@ -188,6 +215,28 @@ export default function PresenterOpportunities() {
                     newSelected.delete(workshop.id);
                   }
                   setSelectedWorkshops(newSelected);
+                }}
+                onSignUp={() => {
+                  const newPending = new Set(pendingSignups);
+                  if (newPending.size >= 10) {
+                    toast({
+                      title: "Maximum reached",
+                      description: "You can sign up for up to 10 workshops at a time.",
+                      variant: "destructive",
+                    });
+                    return;
+                  }
+                  newPending.add(workshop.id);
+                  setPendingSignups(newPending);
+                  toast({
+                    title: "Added to signup list",
+                    description: `${workshop.type || "Workshop"} has been added to your signup list. Click "Complete Signup" to finalize.`,
+                  });
+                }}
+                onRemoveFromSignup={() => {
+                  const newPending = new Set(pendingSignups);
+                  newPending.delete(workshop.id);
+                  setPendingSignups(newPending);
                 }}
               />
             ))}
@@ -223,35 +272,57 @@ type WorkshopWithProgram = Workshop & {
   programFormat?: string | null;
 };
 
-// Bulk Signup Button Component
-function BulkSignupButton({ 
-  selectedWorkshopIds, 
+// Signup Form Dialog Component
+function SignupFormDialog({
+  open,
+  onOpenChange,
+  pendingWorkshopIds,
   workshops,
-  onSuccess 
-}: { 
-  selectedWorkshopIds: string[];
+  onSuccess
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  pendingWorkshopIds: string[];
   workshops: WorkshopWithProgram[];
   onSuccess: () => void;
 }) {
+  const [formData, setFormData] = useState({ firstName: "", lastName: "", email: "" });
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const bulkSignupMutation = useMutation({
+  const signupMutation = useMutation({
     mutationFn: async () => {
-      return apiRequest("POST", "/api/workshop-signups/bulk", {
-        workshopIds: selectedWorkshopIds,
-        role: "presenter",
-        status: "confirmed"
-      });
+      if (pendingWorkshopIds.length === 0) {
+        throw new Error("No workshops selected");
+      }
+      if (pendingWorkshopIds.length === 1) {
+        return apiRequest("POST", "/api/workshop-signups", {
+          workshopId: pendingWorkshopIds[0],
+          role: "presenter",
+          status: "confirmed",
+          email: formData.email,
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+        });
+      } else {
+        return apiRequest("POST", "/api/workshop-signups/bulk", {
+          workshopIds: pendingWorkshopIds,
+          role: "presenter",
+          status: "confirmed",
+          email: formData.email,
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+        });
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/workshops"] });
-      const workshopNames = selectedWorkshopIds
+      const workshopNames = pendingWorkshopIds
         .map(id => workshops.find(w => w.id === id)?.type || workshops.find(w => w.id === id)?.name)
         .filter(Boolean)
         .slice(0, 3)
         .join(", ");
-      const moreCount = selectedWorkshopIds.length > 3 ? ` and ${selectedWorkshopIds.length - 3} more` : "";
+      const moreCount = pendingWorkshopIds.length > 3 ? ` and ${pendingWorkshopIds.length - 3} more` : "";
       toast({
         title: "Sign up successful!",
         description: `You've been registered as a presenter for ${workshopNames}${moreCount}`,
@@ -267,14 +338,104 @@ function BulkSignupButton({
     },
   });
 
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.firstName || !formData.lastName || !formData.email) {
+      toast({
+        title: "Missing information",
+        description: "Please fill in all required fields.",
+        variant: "destructive",
+      });
+      return;
+    }
+    signupMutation.mutate();
+  };
+
+  const pendingWorkshops = pendingWorkshopIds
+    .map(id => workshops.find(w => w.id === id))
+    .filter(Boolean) as WorkshopWithProgram[];
+
   return (
-    <Button
-      onClick={() => bulkSignupMutation.mutate()}
-      disabled={bulkSignupMutation.isPending}
-      className="bg-green-600 hover:bg-green-700"
-    >
-      {bulkSignupMutation.isPending ? "Signing up..." : `Sign Up for ${selectedWorkshopIds.length} Workshop${selectedWorkshopIds.length !== 1 ? 's' : ''}`}
-    </Button>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Complete Your Workshop Signup</DialogTitle>
+          <DialogDescription>
+            Please provide your information to complete registration for {pendingWorkshopIds.length} workshop{pendingWorkshopIds.length !== 1 ? 's' : ''}.
+          </DialogDescription>
+        </DialogHeader>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Workshop List */}
+          <div className="space-y-2">
+            <Label>Selected Workshops</Label>
+            <div className="border rounded-md p-3 max-h-40 overflow-y-auto space-y-1">
+              {pendingWorkshops.map((workshop) => (
+                <div key={workshop.id} className="text-sm">
+                  <span className="font-medium">{workshop.type || "Workshop"}</span>
+                  {workshop.date && (
+                    <span className="text-muted-foreground ml-2">
+                      - {new Date(workshop.date).toLocaleDateString()}
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Form Fields */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="firstName">First Name *</Label>
+              <Input
+                id="firstName"
+                value={formData.firstName}
+                onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="lastName">Last Name *</Label>
+              <Input
+                id="lastName"
+                value={formData.lastName}
+                onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                required
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="email">Email *</Label>
+            <Input
+              id="email"
+              type="email"
+              value={formData.email}
+              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              required
+            />
+          </div>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              disabled={signupMutation.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              disabled={signupMutation.isPending}
+              className="bg-green-600 hover:bg-green-700"
+            >
+              {signupMutation.isPending ? "Submitting..." : "Confirm Signup"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -282,38 +443,18 @@ function BulkSignupButton({
 function WorkshopCard({ 
   workshop, 
   isSelected, 
-  onSelectChange 
+  isPendingSignup,
+  onSelectChange,
+  onSignUp,
+  onRemoveFromSignup
 }: { 
   workshop: WorkshopWithProgram;
   isSelected: boolean;
+  isPendingSignup: boolean;
   onSelectChange: (selected: boolean) => void;
+  onSignUp: () => void;
+  onRemoveFromSignup: () => void;
 }) {
-  const queryClient = useQueryClient();
-  const { toast } = useToast();
-
-  const signupMutation = useMutation({
-    mutationFn: async () => {
-      return apiRequest("POST", "/api/workshop-signups", {
-        workshopId: workshop.id,
-        role: "presenter",
-        status: "confirmed"
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/workshops"] });
-      toast({
-        title: "Sign up successful!",
-        description: `You've been registered as a presenter for ${workshop.type || workshop.name}`,
-      });
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Sign up failed",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
 
   const formatDate = (date: Date | string | null) => {
     if (!date) return "TBD";
@@ -348,7 +489,7 @@ function WorkshopCard({
   const workshopType = workshop.type || "Workshop";
 
   return (
-    <Card className={`overflow-hidden hover:shadow-lg transition-shadow ${isSelected ? 'ring-2 ring-green-500' : ''}`} data-testid={`card-workshop-${workshop.id}`}>
+    <Card className={`overflow-hidden hover:shadow-lg transition-shadow ${isSelected ? 'ring-2 ring-green-500' : ''} ${isPendingSignup ? 'ring-2 ring-blue-500 bg-blue-50/30' : ''}`} data-testid={`card-workshop-${workshop.id}`}>
       <CardContent className="p-6">
         {/* Checkbox for selection */}
         <div className="flex items-start justify-between mb-3">
@@ -435,14 +576,25 @@ function WorkshopCard({
               {filledSpots}/{totalSpots} presenter
             </span>
           </div>
-          <Button
-            onClick={() => signupMutation.mutate()}
-            disabled={signupMutation.isPending || availableSpots === 0}
-            data-testid={`button-signup-${workshop.id}`}
-            size="sm"
-          >
-            Sign Up
-          </Button>
+          {isPendingSignup ? (
+            <Button
+              onClick={onRemoveFromSignup}
+              variant="outline"
+              size="sm"
+              data-testid={`button-remove-${workshop.id}`}
+            >
+              Remove
+            </Button>
+          ) : (
+            <Button
+              onClick={onSignUp}
+              disabled={availableSpots === 0}
+              data-testid={`button-signup-${workshop.id}`}
+              size="sm"
+            >
+              Sign Up
+            </Button>
+          )}
         </div>
 
         {/* Salesforce ID (debug) */}
