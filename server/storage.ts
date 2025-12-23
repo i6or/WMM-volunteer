@@ -805,7 +805,7 @@ export class DatabaseStorage implements IStorage {
         name: row.name,
         title: row.title,
         topic: row.topic,
-        workshopType: row.workshop_type,
+        workshopType: row.workshop_type || null,
         format: row.format,
         description: row.description,
         date: row.date,
