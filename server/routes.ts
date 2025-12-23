@@ -2317,22 +2317,33 @@ print(json.dumps({
   // Debug endpoint to test workshop query
   app.get("/api/debug/workshops", async (req, res) => {
     try {
-      // Simple count query
-      const countResult = await db.execute(sql`SELECT COUNT(*) as count FROM workshops`);
-      const totalCount = (countResult.rows[0] as any)?.count || 0;
+      // Check column names
+      const columnsResult = await db.execute(sql`
+        SELECT column_name, data_type 
+        FROM information_schema.columns
+        WHERE table_name = 'workshops' 
+        AND column_name IN ('type', 'workshop_type', 'format')
+        ORDER BY column_name
+      `);
       
-      // Simple select without JOIN
-      const simpleResult = await db.select().from(workshops).limit(5);
+      // Get sample workshops with workshop_type and format
+      const workshopsResult = await db.execute(sql`
+        SELECT id, name, workshop_type, format, salesforce_id
+        FROM workshops 
+        LIMIT 5
+      `);
       
       res.json({
-        totalCount,
-        sampleWorkshops: simpleResult,
-        message: `Found ${totalCount} total workshops, showing ${simpleResult.length} samples`
+        columns: columnsResult.rows,
+        sampleWorkshops: workshopsResult.rows,
+        note: "Check if workshop_type column exists and has values"
       });
     } catch (error) {
+      console.error('[DEBUG-WORKSHOPS] Error:', error);
       res.status(500).json({ 
+        message: "Internal server error", 
         error: String(error),
-        message: "Failed to query workshops"
+        stack: error instanceof Error ? error.stack : undefined
       });
     }
   });
