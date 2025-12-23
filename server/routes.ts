@@ -45,18 +45,23 @@ const participantQuerySchema = z.object({
 const CODE_VERSION = "2024-12-11-v17-lead-if-no-contact";
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Auto-migrate: Add type and format columns to workshops table if they don't exist
+  // Auto-migrate: Add workshop_type and format columns to workshops table if they don't exist
   try {
     const columnsResult = await db.execute(sql`
       SELECT column_name FROM information_schema.columns
-      WHERE table_name = 'workshops' AND column_name IN ('type', 'format')
+      WHERE table_name = 'workshops' AND column_name IN ('workshop_type', 'type', 'format')
     `);
     const existingColumns = columnsResult.rows.map((r: any) => r.column_name);
     
-    if (!existingColumns.includes('type')) {
-      console.log('[AUTO-MIGRATION] Adding type column to workshops table...');
-      await db.execute(sql`ALTER TABLE workshops ADD COLUMN IF NOT EXISTS type TEXT`);
-      console.log('[AUTO-MIGRATION] ✓ Added type column');
+    // Migrate from 'type' to 'workshop_type' if needed
+    if (existingColumns.includes('type') && !existingColumns.includes('workshop_type')) {
+      console.log('[AUTO-MIGRATION] Renaming type column to workshop_type...');
+      await db.execute(sql`ALTER TABLE workshops RENAME COLUMN type TO workshop_type`);
+      console.log('[AUTO-MIGRATION] ✓ Renamed type to workshop_type');
+    } else if (!existingColumns.includes('workshop_type')) {
+      console.log('[AUTO-MIGRATION] Adding workshop_type column to workshops table...');
+      await db.execute(sql`ALTER TABLE workshops ADD COLUMN IF NOT EXISTS workshop_type TEXT`);
+      console.log('[AUTO-MIGRATION] ✓ Added workshop_type column');
     }
     
     if (!existingColumns.includes('format')) {
@@ -1891,7 +1896,7 @@ print(json.dumps({
           // Use RAW SQL with UPSERT (bypasses Drizzle schema)
           await db.execute(sql`
             INSERT INTO workshops (
-              id, salesforce_id, program_id, name, title, topic, type, description,
+              id, salesforce_id, program_id, name, title, topic, workshop_type, description,
               date, start_time, end_time, location, max_participants,
               current_participants, status, created_at, updated_at
             ) VALUES (
@@ -1917,7 +1922,7 @@ print(json.dumps({
               name = EXCLUDED.name,
               title = EXCLUDED.title,
               topic = EXCLUDED.topic,
-              type = EXCLUDED.type,
+              workshop_type = EXCLUDED.workshop_type,
               description = EXCLUDED.description,
               date = EXCLUDED.date,
               start_time = EXCLUDED.start_time,
@@ -2063,14 +2068,27 @@ print(json.dumps({
   // Admin endpoint to add workshop type and format columns
   app.post("/api/admin/add-workshop-columns", async (req, res) => {
     try {
-      console.log('[MIGRATION] Adding type and format columns to workshops table...');
+      console.log('[MIGRATION] Adding workshop_type and format columns to workshops table...');
       
-      // Add type column
-      await db.execute(sql`
-        ALTER TABLE workshops
-        ADD COLUMN IF NOT EXISTS type TEXT
+      // Check if old 'type' column exists and migrate it
+      const columnsResult = await db.execute(sql`
+        SELECT column_name FROM information_schema.columns
+        WHERE table_name = 'workshops' AND column_name IN ('workshop_type', 'type')
       `);
-      console.log('[MIGRATION] ✓ Added type column');
+      const existingColumns = columnsResult.rows.map((r: any) => r.column_name);
+      
+      if (existingColumns.includes('type') && !existingColumns.includes('workshop_type')) {
+        // Migrate from 'type' to 'workshop_type'
+        await db.execute(sql`ALTER TABLE workshops RENAME COLUMN type TO workshop_type`);
+        console.log('[MIGRATION] ✓ Renamed type to workshop_type');
+      } else if (!existingColumns.includes('workshop_type')) {
+        // Add workshop_type column
+        await db.execute(sql`
+          ALTER TABLE workshops
+          ADD COLUMN IF NOT EXISTS workshop_type TEXT
+        `);
+        console.log('[MIGRATION] ✓ Added workshop_type column');
+      }
       
       // Add format column
       await db.execute(sql`
@@ -2081,9 +2099,9 @@ print(json.dumps({
       
       // Create indexes
       await db.execute(sql`
-        CREATE INDEX IF NOT EXISTS idx_workshops_type ON workshops(type)
+        CREATE INDEX IF NOT EXISTS idx_workshops_workshop_type ON workshops(workshop_type)
       `);
-      console.log('[MIGRATION] ✓ Created index on type column');
+      console.log('[MIGRATION] ✓ Created index on workshop_type column');
       
       await db.execute(sql`
         CREATE INDEX IF NOT EXISTS idx_workshops_format ON workshops(format)
@@ -2091,22 +2109,22 @@ print(json.dumps({
       console.log('[MIGRATION] ✓ Created index on format column');
       
       // Verify the columns were added
-      const columnsResult = await db.execute(sql`
+      const verifyResult = await db.execute(sql`
         SELECT column_name, data_type
         FROM information_schema.columns
         WHERE table_name = 'workshops' 
-          AND column_name IN ('type', 'format')
+          AND column_name IN ('workshop_type', 'format')
         ORDER BY column_name
       `);
       
-      const addedColumns = columnsResult.rows.map((row: any) => ({
+      const addedColumns = verifyResult.rows.map((row: any) => ({
         name: row.column_name,
         type: row.data_type
       }));
       
       res.json({
         success: true,
-        message: 'Successfully added type and format columns to workshops table',
+        message: 'Successfully added workshop_type and format columns to workshops table',
         columns: addedColumns
       });
     } catch (error) {
@@ -2486,7 +2504,7 @@ print(json.dumps({
             firstName: firstName || "Volunteer",
             lastName: lastName || "",
             workshop: {
-              type: workshop.type || workshop.name,
+              type: workshop.workshopType || workshop.name,
               date: workshop.date,
               startTime: workshop.startTime,
               endTime: workshop.endTime,
@@ -2617,7 +2635,7 @@ print(json.dumps({
                 firstName: firstName || volunteer.firstName,
                 lastName: lastName || volunteer.lastName,
                 workshop: {
-                  type: workshop.type || workshop.name,
+                  type: workshop.workshopType || workshop.name,
                   date: workshop.date,
                   startTime: workshop.startTime,
                   endTime: workshop.endTime,
@@ -2691,7 +2709,7 @@ print(json.dumps({
       return `${displayHours}:${minutes} ${period} EST`;
     };
 
-    const workshopType = data.workshop.type || "Workshop";
+    const workshopType = data.workshop.workshopType || "Workshop";
     const workshopDate = formatDate(data.workshop.date);
     const workshopTime = data.workshop.startTime 
       ? `${formatTime(data.workshop.startTime)}${data.workshop.endTime ? ` - ${formatTime(data.workshop.endTime)}` : ''}`

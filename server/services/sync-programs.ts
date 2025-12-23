@@ -112,7 +112,7 @@ export class ProgramSyncService {
       name: workshopName, // Keep for internal reference, but don't display
       title: workshopName, // Legacy field
       topic: workshopTopic, // Topic from Salesforce (newly created field)
-      type: workshopType, // Workshop Type from Salesforce (e.g., "What is Money?")
+      workshopType: workshopType, // Workshop Type from Salesforce Workshop_Type__c (e.g., "What is Money?")
       format: null, // Will be inherited from program if needed
       description: null, // Remove redundant description that includes workshop name
       date: workshopDate || new Date(),

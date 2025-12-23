@@ -230,7 +230,7 @@ export default function PresenterOpportunities() {
                   setPendingSignups(newPending);
                   toast({
                     title: "Added to signup list",
-                    description: `${workshop.type || "Workshop"} has been added to your signup list. Click "Complete Signup" to finalize.`,
+                    description: `${workshop.workshopType || "Workshop"} has been added to your signup list. Click "Complete Signup" to finalize.`,
                   });
                 }}
                 onRemoveFromSignup={() => {
@@ -318,7 +318,7 @@ function SignupFormDialog({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/workshops"] });
       const workshopNames = pendingWorkshopIds
-        .map(id => workshops.find(w => w.id === id)?.type || workshops.find(w => w.id === id)?.name)
+        .map(id => workshops.find(w => w.id === id)?.workshopType || workshops.find(w => w.id === id)?.name)
         .filter(Boolean)
         .slice(0, 3)
         .join(", ");
@@ -372,7 +372,7 @@ function SignupFormDialog({
             <div className="border rounded-md p-3 max-h-40 overflow-y-auto space-y-1">
               {pendingWorkshops.map((workshop) => (
                 <div key={workshop.id} className="text-sm">
-                  <span className="font-medium">{workshop.type || "Workshop"}</span>
+                  <span className="font-medium">{workshop.workshopType || "Workshop"}</span>
                   {workshop.date && (
                     <span className="text-muted-foreground ml-2">
                       - {new Date(workshop.date).toLocaleDateString()}
@@ -484,10 +484,10 @@ function WorkshopCard({
   const filledSpots = 0;
   const availableSpots = Math.max(0, totalSpots - filledSpots);
 
-  // Use workshop.type (from Workshop_Type__c in Salesforce) as the main title
+  // Use workshop.workshopType (from Workshop_Type__c in Salesforce) as the main title
   // This is the workshop type without program name (e.g., "What is Money?", "Managing Your Money")
-  // Workshop_Type__c is the existing field in Salesforce - use it!
-  const workshopType = workshop.type || "Workshop";
+  // Workshop_Type__c is the existing field in Salesforce - maps to workshop_type in database
+  const workshopType = workshop.workshopType || "Workshop";
 
   return (
     <Card className={`overflow-hidden hover:shadow-lg transition-shadow ${isSelected ? 'ring-2 ring-green-500' : ''} ${isPendingSignup ? 'ring-2 ring-blue-500 bg-blue-50/30' : ''}`} data-testid={`card-workshop-${workshop.id}`}>

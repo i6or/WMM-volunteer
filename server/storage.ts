@@ -792,7 +792,7 @@ export class DatabaseStorage implements IStorage {
         console.log(`[getAllWorkshops] First workshop:`, {
           id: (rows[0] as any).id,
           name: (rows[0] as any).name,
-          type: (rows[0] as any).type,
+          workshopType: (rows[0] as any).workshop_type,
           date: (rows[0] as any).date
         });
       }
@@ -805,7 +805,7 @@ export class DatabaseStorage implements IStorage {
         name: row.name,
         title: row.title,
         topic: row.topic,
-        type: row.type,
+        workshopType: row.workshop_type,
         format: row.format,
         description: row.description,
         date: row.date,
@@ -834,7 +834,7 @@ export class DatabaseStorage implements IStorage {
 
       if (filters?.search) {
         conditions.push(
-          sql`${workshops.name} ILIKE ${'%' + filters.search + '%'} OR ${workshops.title} ILIKE ${'%' + filters.search + '%'} OR ${workshops.type} ILIKE ${'%' + filters.search + '%'} OR ${workshops.description} ILIKE ${'%' + filters.search + '%'}`
+          sql`${workshops.name} ILIKE ${'%' + filters.search + '%'} OR ${workshops.title} ILIKE ${'%' + filters.search + '%'} OR ${workshops.workshopType} ILIKE ${'%' + filters.search + '%'} OR ${workshops.description} ILIKE ${'%' + filters.search + '%'}`
         );
       }
 
@@ -846,7 +846,7 @@ export class DatabaseStorage implements IStorage {
           name: workshops.name,
           title: workshops.title,
           topic: workshops.topic,
-          type: workshops.type,
+          workshopType: workshops.workshopType,
           format: workshops.format,
           description: workshops.description,
           date: workshops.date,
