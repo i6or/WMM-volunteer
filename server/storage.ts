@@ -803,7 +803,7 @@ export class DatabaseStorage implements IStorage {
 
     // Join with programs to get programType and format
     // Use LEFT JOIN so workshops without programs still show
-    const baseQuery = db
+    let baseQuery = db
       .select({
         // Workshop fields
         id: workshops.id,
@@ -833,7 +833,7 @@ export class DatabaseStorage implements IStorage {
 
     // Apply WHERE conditions only if we have any
     if (conditions.length > 0) {
-      baseQuery.where(and(...conditions));
+      baseQuery = baseQuery.where(and(...conditions));
     }
 
     // Order by date ascending (closest upcoming workshops first), NULL dates last
