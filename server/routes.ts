@@ -2269,8 +2269,19 @@ print(json.dumps({
     try {
       const filters = workshopQuerySchema.parse(req.query);
       const workshops = await storage.getAllWorkshops(filters);
+      
+      // Debug logging
+      console.log(`[WORKSHOPS] Query returned ${workshops.length} workshops`);
+      if (workshops.length === 0) {
+        // Check total count without filters
+        const allWorkshops = await db.execute(sql`SELECT COUNT(*) as count FROM workshops`);
+        const totalCount = (allWorkshops.rows[0] as any)?.count || 0;
+        console.log(`[WORKSHOPS] Total workshops in DB: ${totalCount}`);
+      }
+      
       res.json(workshops);
     } catch (error) {
+      console.error('[WORKSHOPS] Error:', error);
       res.status(400).json({ message: "Invalid query parameters" });
     }
   });
