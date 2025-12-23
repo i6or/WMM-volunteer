@@ -61,9 +61,6 @@ export default function Home() {
                 <Button className="bg-white text-primary hover:bg-green-50" data-testid="button-browse" asChild>
                   <a href="/coaching-opportunities">Browse Coaching Opportunities</a>
                 </Button>
-                <Button variant="outline" className="bg-white/10 text-white border-white/30 hover:bg-white/20" asChild>
-                  <a href="/register">Register as Volunteer</a>
-                </Button>
               </div>
             </div>
             <div className="absolute right-0 top-0 w-32 h-32 bg-white/10 rounded-full -translate-y-16 translate-x-16"></div>

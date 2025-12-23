@@ -1883,6 +1883,7 @@ print(json.dumps({
           }
 
           const workshopName = sfWorkshop.Name || "Unnamed Workshop";
+          // Workshop_Type__c is the EXISTING field in Salesforce - use this!
           const workshopType = (sfWorkshop as any).Workshop_Type__c || null;
           // Topic field - try both possible field names
           const workshopTopic = (sfWorkshop as any).Topic__c || (sfWorkshop as any).Workshop_Topic__c || null;

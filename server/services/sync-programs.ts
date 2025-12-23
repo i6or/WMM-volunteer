@@ -100,7 +100,8 @@ export class ProgramSyncService {
 
     // Use Name field directly (Workshop_Name__c doesn't exist)
     const workshopName = sfWorkshop.Name || "Unnamed Workshop";
-    // Workshop_Type__c contains the workshop type (e.g., "What is Money?", "Managing Your Money")
+    // Workshop_Type__c is the EXISTING field in Salesforce - use this for the workshop type
+    // This field contains the workshop type without program name (e.g., "What is Money?", "Managing Your Money")
     const workshopType = (sfWorkshop as any).Workshop_Type__c || null;
     // Topic field - try both possible field names
     const workshopTopic = (sfWorkshop as any).Topic__c || (sfWorkshop as any).Workshop_Topic__c || null;

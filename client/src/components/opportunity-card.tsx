@@ -105,7 +105,7 @@ export function OpportunityCard({ opportunity }: OpportunityCardProps) {
           </div>
         </div>
         
-        <div className="flex items-center justify-between">
+        <div className="flex items-center">
           <div className="flex items-center space-x-2">
             <div className="text-sm text-muted-foreground" data-testid={`text-capacity-${opportunity.id}`}>
               {opportunity.filledSpots}/{opportunity.totalSpots} spots filled
@@ -118,15 +118,6 @@ export function OpportunityCard({ opportunity }: OpportunityCardProps) {
               />
             </div>
           </div>
-          <Button 
-            className="bg-primary text-primary-foreground hover:bg-blue-600" 
-            size="sm"
-            onClick={() => signupMutation.mutate()}
-            disabled={signupMutation.isPending || (opportunity.filledSpots || 0) >= opportunity.totalSpots}
-            data-testid={`button-signup-${opportunity.id}`}
-          >
-            {signupMutation.isPending ? "Signing up..." : "Sign Up"}
-          </Button>
         </div>
       </CardContent>
     </Card>

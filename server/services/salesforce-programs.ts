@@ -29,7 +29,7 @@ export interface SalesforceWorkshop {
   Program__c: string;
   Date_Time__c?: string;
   Date__c?: string;
-  Workshop_Type__c?: string; // Type field (e.g., "What is Money?", "Managing Your Money")
+  Workshop_Type__c?: string; // EXISTING field in Salesforce - Workshop Type (e.g., "What is Money?", "Managing Your Money")
   Topic__c?: string; // Topic field (newly created in SF)
   Workshop_Topic__c?: string; // Alternative field name for Topic
   Presenter__c?: string;

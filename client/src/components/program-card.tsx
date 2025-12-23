@@ -17,10 +17,6 @@ export function ProgramCard({ program }: ProgramCardProps) {
   const filledSpots = program.numberOfCoaches || 0;
   const availableSpots = Math.max(0, totalSpots - filledSpots);
 
-  // Navigate to signup form with this program pre-selected
-  const handleSignUp = () => {
-    setLocation(`/signup/form?programs=${program.id}`);
-  };
 
   const formatDate = (date: Date | string | null) => {
     if (!date) return "";
@@ -167,23 +163,12 @@ export function ProgramCard({ program }: ProgramCardProps) {
           )}
         </div>
 
-        {/* Coach count and Action button */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <Users className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm text-muted-foreground" data-testid={`text-spots-${program.id}`}>
-              {filledSpots}/{totalSpots} coaches
-            </span>
-          </div>
-          <Button
-            className="bg-green-500 text-white hover:bg-green-600"
-            size="sm"
-            onClick={handleSignUp}
-            disabled={availableSpots <= 0}
-            data-testid={`button-signup-${program.id}`}
-          >
-            {availableSpots <= 0 ? "Full" : "Sign Up"}
-          </Button>
+        {/* Coach count */}
+        <div className="flex items-center">
+          <Users className="h-4 w-4 text-muted-foreground" />
+          <span className="text-sm text-muted-foreground" data-testid={`text-spots-${program.id}`}>
+            {filledSpots}/{totalSpots} coaches
+          </span>
         </div>
 
         {/* Salesforce ID (debug) */}

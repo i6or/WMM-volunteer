@@ -263,17 +263,11 @@ export default function CoachingOpportunities() {
 
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
             <p className="text-gray-700">
-              Thank you for your interest in coaching in an upcoming program! Please review the available slots below and click on the button to sign up. 
+              Thank you for your interest in coaching in an upcoming program! Please review the available slots below. 
               The date shown is the start date of the weekly program. Full schedules can be found under "related files". Thank you!
             </p>
           </div>
 
-          <div className="mb-4">
-            <p className="text-gray-600 mb-2">Already signed up?</p>
-            <Button variant="outline" className="border-green-600 text-green-600 hover:bg-green-50" asChild>
-              <a href="/my-signups">View My Signups</a>
-            </Button>
-          </div>
         </div>
 
         {/* Coaching Opportunities Section */}
@@ -415,34 +409,6 @@ export default function CoachingOpportunities() {
                                       Signed Up
                                     </Badge>
                                   )}
-                                  {!isSignedUpForAll && (isProgramLevel ? programLevelAvailable > 0 : !isTypeFull) && (
-                                    <Button
-                                      size="sm"
-                                      className="bg-green-600 hover:bg-green-700 text-white"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        if (isProgramLevel) {
-                                          // Sign up for ALL opportunities in the program
-                                          bulkSignupMutation.mutate({
-                                            programId: program.id,
-                                            category: type,
-                                          });
-                                        } else {
-                                          // Sign up for individual workshop
-                                          const firstAvailable = typeOpps.find(opp => !isFull(opp) && !isSignedUp(opp.id));
-                                          if (firstAvailable) {
-                                            signupMutation.mutate(firstAvailable.id);
-                                          }
-                                        }
-                                      }}
-                                      disabled={signupMutation.isPending || bulkSignupMutation.isPending}
-                                    >
-                                      {signupMutation.isPending || bulkSignupMutation.isPending 
-                                        ? "Signing up..." 
-                                        : "Sign Up"
-                                      }
-                                    </Button>
-                                  )}
                                   {(isProgramLevel ? programLevelAvailable === 0 : isTypeFull) && !isSignedUpForAll && (
                                     <Badge variant="outline" className="border-gray-300 text-gray-500">
                                       Full
@@ -515,16 +481,7 @@ export default function CoachingOpportunities() {
                                                 <Badge variant="outline" className="border-gray-300 text-gray-500">
                                                   Full
                                                 </Badge>
-                                              ) : (
-                                                <Button
-                                                  size="sm"
-                                                  onClick={() => signupMutation.mutate(opp.id)}
-                                                  disabled={signupMutation.isPending}
-                                                  className="bg-green-600 hover:bg-green-700 text-white"
-                                                >
-                                                  {signupMutation.isPending ? "Signing up..." : "Sign Up"}
-                                                </Button>
-                                              )}
+                                              ) : null}
                                             </>
                                           )}
                                           {isProgramLevel && (

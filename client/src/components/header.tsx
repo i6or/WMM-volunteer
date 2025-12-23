@@ -36,15 +36,6 @@ export function Header() {
               Presenter Opportunities
             </Link>
             <Link
-              href="/register"
-              className={`text-sm transition-colors ${
-                location === "/register" ? "text-foreground" : "text-muted-foreground hover:text-foreground"
-              }`}
-              data-testid="nav-register"
-            >
-              Volunteer Registration
-            </Link>
-            <Link
               href="/admin"
               className={`text-sm transition-colors ${
                 location === "/admin" ? "text-foreground" : "text-muted-foreground hover:text-foreground"

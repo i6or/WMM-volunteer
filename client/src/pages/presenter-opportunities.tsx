@@ -484,8 +484,9 @@ function WorkshopCard({
   const filledSpots = 0;
   const availableSpots = Math.max(0, totalSpots - filledSpots);
 
-  // Use workshop.type as the main title (required field from SF)
-  // This is the workshop type without program name (e.g., "What is Money?")
+  // Use workshop.type (from Workshop_Type__c in Salesforce) as the main title
+  // This is the workshop type without program name (e.g., "What is Money?", "Managing Your Money")
+  // Workshop_Type__c is the existing field in Salesforce - use it!
   const workshopType = workshop.type || "Workshop";
 
   return (
