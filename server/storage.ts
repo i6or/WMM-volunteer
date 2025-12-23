@@ -799,14 +799,15 @@ export class DatabaseStorage implements IStorage {
     }
 
     // Filter by program status - only show workshops from active programs by default
+    // But allow workshops without programs (programId IS NULL) to show as well
     if (filters?.programStatus && filters.programStatus !== "all") {
       conditions.push(
-        sql`${workshops.programId} IN (SELECT id FROM ${programs} WHERE status = ${filters.programStatus})`
+        sql`(${workshops.programId} IS NULL OR ${workshops.programId} IN (SELECT id FROM ${programs} WHERE status = ${filters.programStatus}))`
       );
     } else {
-      // Default: only show workshops from active programs
+      // Default: show workshops from active programs OR workshops without programs
       conditions.push(
-        sql`${workshops.programId} IN (SELECT id FROM ${programs} WHERE status = 'active')`
+        sql`(${workshops.programId} IS NULL OR ${workshops.programId} IN (SELECT id FROM ${programs} WHERE status = 'active'))`
       );
     }
 
