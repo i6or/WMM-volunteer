@@ -2264,6 +2264,29 @@ print(json.dumps({
     res.status(204).send();
   });
 
+  // Debug endpoint to test workshop query
+  app.get("/api/debug/workshops", async (req, res) => {
+    try {
+      // Simple count query
+      const countResult = await db.execute(sql`SELECT COUNT(*) as count FROM workshops`);
+      const totalCount = (countResult.rows[0] as any)?.count || 0;
+      
+      // Simple select without JOIN
+      const simpleResult = await db.select().from(workshops).limit(5);
+      
+      res.json({
+        totalCount,
+        sampleWorkshops: simpleResult,
+        message: `Found ${totalCount} total workshops, showing ${simpleResult.length} samples`
+      });
+    } catch (error) {
+      res.status(500).json({ 
+        error: String(error),
+        message: "Failed to query workshops"
+      });
+    }
+  });
+
   // Workshop routes
   app.get("/api/workshops", async (req, res) => {
     try {
