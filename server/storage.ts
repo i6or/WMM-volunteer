@@ -781,12 +781,9 @@ export class DatabaseStorage implements IStorage {
   async getAllWorkshops(filters?: { programId?: string; status?: string; search?: string; programStatus?: string }): Promise<Workshop[]> {
     let conditions = [];
 
-    // By default, only show upcoming workshops (date >= today)
-    // But allow NULL dates to show as well (workshops without dates)
-    // Temporarily relaxed to show all workshops for debugging
-    // TODO: Re-enable date filter once confirmed working
-    // conditions.push(sql`(${workshops.date} IS NULL OR ${workshops.date} >= CURRENT_DATE)`);
-
+    // Temporarily remove ALL filters to debug - show all workshops
+    // TODO: Re-enable filters once we confirm workshops are showing
+    
     if (filters?.programId) {
       conditions.push(eq(workshops.programId, filters.programId));
     }
@@ -801,20 +798,11 @@ export class DatabaseStorage implements IStorage {
       );
     }
 
-    // Filter by program status - only show workshops from active programs by default
-    // But allow workshops without programs (programId IS NULL) to show as well
-    if (filters?.programStatus && filters.programStatus !== "all") {
-      conditions.push(
-        sql`(${workshops.programId} IS NULL OR ${workshops.programId} IN (SELECT id FROM ${programs} WHERE status = ${filters.programStatus}))`
-      );
-    } else {
-      // Default: show workshops from active programs OR workshops without programs
-      conditions.push(
-        sql`(${workshops.programId} IS NULL OR ${workshops.programId} IN (SELECT id FROM ${programs} WHERE status = 'active'))`
-      );
-    }
+    // TEMPORARILY REMOVED: Program status filter - show ALL workshops regardless of program status
+    // This will help us debug if the program filter was the issue
 
     // Join with programs to get programType and format
+    // Use LEFT JOIN so workshops without programs still show
     const baseQuery = db
       .select({
         // Workshop fields
@@ -841,11 +829,17 @@ export class DatabaseStorage implements IStorage {
         programFormat: programs.format,
       })
       .from(workshops)
-      .leftJoin(programs, eq(workshops.programId, programs.id))
-      .where(conditions.length > 0 ? and(...conditions) : undefined);
+      .leftJoin(programs, eq(workshops.programId, programs.id));
+
+    // Apply WHERE conditions only if we have any
+    if (conditions.length > 0) {
+      baseQuery.where(and(...conditions));
+    }
 
     // Order by date ascending (closest upcoming workshops first), NULL dates last
     const results = await baseQuery.orderBy(sql`${workshops.date} ASC NULLS LAST`);
+    
+    console.log(`[getAllWorkshops] Found ${results.length} workshops`);
     
     // Map results to Workshop type with additional program fields
     return results.map((row: any) => {
