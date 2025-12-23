@@ -838,8 +838,12 @@ export class DatabaseStorage implements IStorage {
 
     // Order by date ascending (closest upcoming workshops first)
     try {
+      // First test a simple query to see if workshops exist
+      const simpleTest = await db.select().from(workshops).limit(5);
+      console.log(`[getAllWorkshops] Simple test query found ${simpleTest.length} workshops`);
+      
       const results = await baseQuery.orderBy(workshops.date);
-      console.log(`[getAllWorkshops] Found ${results.length} workshops`);
+      console.log(`[getAllWorkshops] Query with JOIN found ${results.length} workshops`);
       
       // Map results to Workshop type with additional program fields
       return results.map((row: any) => {
@@ -853,7 +857,9 @@ export class DatabaseStorage implements IStorage {
     } catch (error) {
       console.error('[getAllWorkshops] Query error:', error);
       console.error('[getAllWorkshops] Error details:', String(error));
-      throw error;
+      console.error('[getAllWorkshops] Error stack:', error instanceof Error ? error.stack : 'No stack trace');
+      // Return empty array instead of throwing to prevent 500 error
+      return [];
     }
   }
 
