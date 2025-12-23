@@ -782,45 +782,58 @@ export class DatabaseStorage implements IStorage {
     try {
       console.log('[getAllWorkshops] Starting with filters:', filters);
       
-      // Build conditions
-      let conditions = [];
+      // Use raw SQL query to avoid any Drizzle ORM issues
+      let query = sql`SELECT * FROM workshops WHERE 1=1`;
+      const params: any[] = [];
       
       if (filters?.programId) {
-        conditions.push(eq(workshops.programId, filters.programId));
+        query = sql`${query} AND program_id = ${filters.programId}`;
       }
 
       if (filters?.status && filters.status !== "all") {
-        conditions.push(eq(workshops.status, filters.status));
+        query = sql`${query} AND status = ${filters.status}`;
       }
 
       if (filters?.search) {
-        conditions.push(
-          sql`${workshops.name} ILIKE ${'%' + filters.search + '%'} OR ${workshops.title} ILIKE ${'%' + filters.search + '%'} OR ${workshops.type} ILIKE ${'%' + filters.search + '%'} OR ${workshops.description} ILIKE ${'%' + filters.search + '%'}`
-        );
+        query = sql`${query} AND (name ILIKE ${'%' + filters.search + '%'} OR title ILIKE ${'%' + filters.search + '%'} OR type ILIKE ${'%' + filters.search + '%'} OR description ILIKE ${'%' + filters.search + '%'})`;
       }
 
-      // Simple query without JOIN first
-      let query = db.select().from(workshops);
+      query = sql`${query} ORDER BY date ASC LIMIT 100`;
       
-      if (conditions.length > 0) {
-        query = query.where(and(...conditions));
-      }
+      console.log('[getAllWorkshops] Executing raw SQL query...');
+      const result = await db.execute(query);
+      const rows = result.rows;
       
-      const simpleResults = await query.orderBy(workshops.date).limit(100);
-      
-      console.log(`[getAllWorkshops] Query found ${simpleResults.length} workshops`);
-      if (simpleResults.length > 0) {
+      console.log(`[getAllWorkshops] Raw SQL query found ${rows.length} workshops`);
+      if (rows.length > 0) {
         console.log(`[getAllWorkshops] First workshop:`, {
-          id: simpleResults[0].id,
-          name: simpleResults[0].name,
-          type: simpleResults[0].type,
-          date: simpleResults[0].date
+          id: (rows[0] as any).id,
+          name: (rows[0] as any).name,
+          type: (rows[0] as any).type,
+          date: (rows[0] as any).date
         });
       }
       
-      // Return workshops with null program fields for now
-      return simpleResults.map((workshop: any) => ({
-        ...workshop,
+      // Map database rows to Workshop format
+      return rows.map((row: any) => ({
+        id: row.id,
+        salesforceId: row.salesforce_id,
+        programId: row.program_id,
+        name: row.name,
+        title: row.title,
+        topic: row.topic,
+        type: row.type,
+        format: row.format,
+        description: row.description,
+        date: row.date,
+        startTime: row.start_time,
+        endTime: row.end_time,
+        location: row.location,
+        maxParticipants: row.max_participants,
+        currentParticipants: row.current_participants,
+        status: row.status,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
         programType: null,
         programFormat: null,
       }));
