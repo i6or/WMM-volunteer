@@ -782,26 +782,9 @@ export class DatabaseStorage implements IStorage {
     try {
       console.log('[getAllWorkshops] Starting with filters:', filters);
       
-      // Use raw SQL query to avoid any Drizzle ORM issues
-      let query = sql`SELECT * FROM workshops WHERE 1=1`;
-      const params: any[] = [];
-      
-      if (filters?.programId) {
-        query = sql`${query} AND program_id = ${filters.programId}`;
-      }
-
-      if (filters?.status && filters.status !== "all") {
-        query = sql`${query} AND status = ${filters.status}`;
-      }
-
-      if (filters?.search) {
-        query = sql`${query} AND (name ILIKE ${'%' + filters.search + '%'} OR title ILIKE ${'%' + filters.search + '%'} OR type ILIKE ${'%' + filters.search + '%'} OR description ILIKE ${'%' + filters.search + '%'})`;
-      }
-
-      query = sql`${query} ORDER BY date ASC LIMIT 100`;
-      
-      console.log('[getAllWorkshops] Executing raw SQL query...');
-      const result = await db.execute(query);
+      // Use simple SQL query - no filters for now to test
+      console.log('[getAllWorkshops] Executing simple SELECT query...');
+      const result = await db.execute(sql`SELECT * FROM workshops ORDER BY date ASC NULLS LAST LIMIT 100`);
       const rows = result.rows;
       
       console.log(`[getAllWorkshops] Raw SQL query found ${rows.length} workshops`);
