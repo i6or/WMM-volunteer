@@ -836,20 +836,25 @@ export class DatabaseStorage implements IStorage {
       baseQuery = baseQuery.where(and(...conditions));
     }
 
-    // Order by date ascending (closest upcoming workshops first), NULL dates last
-    const results = await baseQuery.orderBy(sql`${workshops.date} ASC NULLS LAST`);
-    
-    console.log(`[getAllWorkshops] Found ${results.length} workshops`);
-    
-    // Map results to Workshop type with additional program fields
-    return results.map((row: any) => {
-      const { programType, programFormat, ...workshop } = row;
-      return {
-        ...workshop,
-        programType,
-        programFormat,
-      } as any;
-    });
+    // Order by date ascending (closest upcoming workshops first)
+    try {
+      const results = await baseQuery.orderBy(workshops.date);
+      console.log(`[getAllWorkshops] Found ${results.length} workshops`);
+      
+      // Map results to Workshop type with additional program fields
+      return results.map((row: any) => {
+        const { programType, programFormat, ...workshop } = row;
+        return {
+          ...workshop,
+          programType,
+          programFormat,
+        } as any;
+      });
+    } catch (error) {
+      console.error('[getAllWorkshops] Query error:', error);
+      console.error('[getAllWorkshops] Error details:', String(error));
+      throw error;
+    }
   }
 
   // Participant operations
