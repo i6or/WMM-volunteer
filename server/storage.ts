@@ -794,7 +794,7 @@ export class DatabaseStorage implements IStorage {
 
     if (filters?.search) {
       conditions.push(
-        sql`${workshops.name} ILIKE ${'%' + filters.search + '%'} OR ${workshops.title} ILIKE ${'%' + filters.search + '%'} OR ${workshops.description} ILIKE ${'%' + filters.search + '%'}`
+        sql`${workshops.name} ILIKE ${'%' + filters.search + '%'} OR ${workshops.title} ILIKE ${'%' + filters.search + '%'} OR ${workshops.type} ILIKE ${'%' + filters.search + '%'} OR ${workshops.description} ILIKE ${'%' + filters.search + '%'}`
       );
     }
 
@@ -810,10 +810,48 @@ export class DatabaseStorage implements IStorage {
       );
     }
 
-    const baseQuery = db.select().from(workshops).where(and(...conditions));
+    // Join with programs to get programType and format
+    const baseQuery = db
+      .select({
+        // Workshop fields
+        id: workshops.id,
+        salesforceId: workshops.salesforceId,
+        programId: workshops.programId,
+        name: workshops.name,
+        title: workshops.title,
+        topic: workshops.topic,
+        type: workshops.type,
+        format: workshops.format,
+        description: workshops.description,
+        date: workshops.date,
+        startTime: workshops.startTime,
+        endTime: workshops.endTime,
+        location: workshops.location,
+        maxParticipants: workshops.maxParticipants,
+        currentParticipants: workshops.currentParticipants,
+        status: workshops.status,
+        createdAt: workshops.createdAt,
+        updatedAt: workshops.updatedAt,
+        // Program fields (aliased to avoid conflicts)
+        programType: programs.programType,
+        programFormat: programs.format,
+      })
+      .from(workshops)
+      .leftJoin(programs, eq(workshops.programId, programs.id))
+      .where(and(...conditions));
 
     // Order by date ascending (closest upcoming workshops first)
-    return await baseQuery.orderBy(sql`${workshops.date} ASC`);
+    const results = await baseQuery.orderBy(sql`${workshops.date} ASC`);
+    
+    // Map results to Workshop type with additional program fields
+    return results.map((row: any) => {
+      const { programType, programFormat, ...workshop } = row;
+      return {
+        ...workshop,
+        programType,
+        programFormat,
+      } as any;
+    });
   }
 
   // Participant operations

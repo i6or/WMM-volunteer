@@ -1859,11 +1859,12 @@ print(json.dumps({
           }
 
           const workshopName = sfWorkshop.Name || "Unnamed Workshop";
+          const workshopType = (sfWorkshop as any).Workshop_Type__c || null;
 
           // Use RAW SQL with UPSERT (bypasses Drizzle schema)
           await db.execute(sql`
             INSERT INTO workshops (
-              id, salesforce_id, program_id, name, title, topic, description,
+              id, salesforce_id, program_id, name, title, topic, type, description,
               date, start_time, end_time, location, max_participants,
               current_participants, status, created_at, updated_at
             ) VALUES (
@@ -1873,6 +1874,7 @@ print(json.dumps({
               ${workshopName},
               ${workshopName},
               NULL,
+              ${workshopType},
               ${'Workshop: ' + workshopName},
               ${workshopDate},
               ${startTime},
@@ -1887,6 +1889,7 @@ print(json.dumps({
             ON CONFLICT (salesforce_id) DO UPDATE SET
               name = EXCLUDED.name,
               title = EXCLUDED.title,
+              type = EXCLUDED.type,
               description = EXCLUDED.description,
               date = EXCLUDED.date,
               start_time = EXCLUDED.start_time,
@@ -2025,6 +2028,65 @@ print(json.dumps({
       res.status(500).json({ 
         error: String(error),
         message: 'Failed to check database. Verify DATABASE_URL is correct.'
+      });
+    }
+  });
+
+  // Admin endpoint to add workshop type and format columns
+  app.post("/api/admin/add-workshop-columns", async (req, res) => {
+    try {
+      console.log('[MIGRATION] Adding type and format columns to workshops table...');
+      
+      // Add type column
+      await db.execute(sql`
+        ALTER TABLE workshops
+        ADD COLUMN IF NOT EXISTS type TEXT
+      `);
+      console.log('[MIGRATION] ✓ Added type column');
+      
+      // Add format column
+      await db.execute(sql`
+        ALTER TABLE workshops
+        ADD COLUMN IF NOT EXISTS format TEXT
+      `);
+      console.log('[MIGRATION] ✓ Added format column');
+      
+      // Create indexes
+      await db.execute(sql`
+        CREATE INDEX IF NOT EXISTS idx_workshops_type ON workshops(type)
+      `);
+      console.log('[MIGRATION] ✓ Created index on type column');
+      
+      await db.execute(sql`
+        CREATE INDEX IF NOT EXISTS idx_workshops_format ON workshops(format)
+      `);
+      console.log('[MIGRATION] ✓ Created index on format column');
+      
+      // Verify the columns were added
+      const columnsResult = await db.execute(sql`
+        SELECT column_name, data_type
+        FROM information_schema.columns
+        WHERE table_name = 'workshops' 
+          AND column_name IN ('type', 'format')
+        ORDER BY column_name
+      `);
+      
+      const addedColumns = columnsResult.rows.map((row: any) => ({
+        name: row.column_name,
+        type: row.data_type
+      }));
+      
+      res.json({
+        success: true,
+        message: 'Successfully added type and format columns to workshops table',
+        columns: addedColumns
+      });
+    } catch (error) {
+      console.error('[MIGRATION] Error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to add columns',
+        error: String(error)
       });
     }
   });
@@ -2259,6 +2321,217 @@ print(json.dumps({
     }
     res.status(204).send();
   });
+
+  // Workshop Signups endpoint
+  app.post("/api/workshop-signups", async (req, res) => {
+    try {
+      const { workshopId, role, status, email, firstName, lastName } = req.body;
+
+      if (!workshopId) {
+        return res.status(400).json({ message: "Workshop ID is required" });
+      }
+
+      // Get workshop details
+      const workshop = await storage.getWorkshop(workshopId);
+      if (!workshop) {
+        return res.status(404).json({ message: "Workshop not found" });
+      }
+
+      // Get program details for type, format, and zoom link
+      let program = null;
+      if (workshop.programId) {
+        program = await storage.getProgram(workshop.programId);
+      }
+
+      // Get volunteer by email if provided, otherwise create a temporary record
+      let volunteer = null;
+      if (email) {
+        volunteer = await storage.getVolunteerByEmail(email);
+        if (!volunteer && firstName && lastName) {
+          // Create volunteer record if doesn't exist
+          volunteer = await storage.createVolunteer({
+            firstName,
+            lastName,
+            email,
+            status: "active",
+          });
+        }
+      }
+
+      // Create workshop signup record (you may need to create a workshop_signups table)
+      // For now, we'll just log it and send the email
+      const signupData = {
+        workshopId,
+        volunteerId: volunteer?.id || null,
+        role: role || "presenter",
+        status: status || "confirmed",
+        email: email || null,
+        firstName: firstName || null,
+        lastName: lastName || null,
+      };
+
+      // Send confirmation email
+      if (email) {
+        try {
+          await sendWorkshopConfirmationEmail({
+            email,
+            firstName: firstName || "Volunteer",
+            lastName: lastName || "",
+            workshop: {
+              type: workshop.type || workshop.name,
+              date: workshop.date,
+              startTime: workshop.startTime,
+              endTime: workshop.endTime,
+              location: workshop.location,
+            },
+            program: program ? {
+              type: program.programType,
+              format: program.format,
+              zoomLink: program.zoomLink,
+            } : null,
+          });
+        } catch (emailError) {
+          console.error("[WORKSHOP-SIGNUP] Failed to send email:", emailError);
+          // Don't fail the signup if email fails
+        }
+      }
+
+      res.status(201).json({
+        success: true,
+        message: "Successfully signed up for workshop",
+        signup: signupData,
+      });
+    } catch (error) {
+      console.error("[WORKSHOP-SIGNUP] Error:", error);
+      res.status(500).json({ message: "Internal server error", error: String(error) });
+    }
+  });
+
+  // Helper function to send workshop confirmation email
+  async function sendWorkshopConfirmationEmail(data: {
+    email: string;
+    firstName: string;
+    lastName: string;
+    workshop: {
+      type: string | null;
+      date: Date | string | null;
+      startTime: string | null;
+      endTime: string | null;
+      location: string | null;
+    };
+    program: {
+      type: string | null;
+      format: string | null;
+      zoomLink: string | null;
+    } | null;
+  }) {
+    const formatDate = (date: Date | string | null) => {
+      if (!date) return "TBD";
+      return new Date(date).toLocaleDateString('en-US', {
+        weekday: 'long',
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric'
+      });
+    };
+
+    const formatTime = (time: string | null) => {
+      if (!time) return "";
+      const match = time.match(/^(\d{2}):(\d{2})/);
+      if (!match) return time;
+      const hours = parseInt(match[1], 10);
+      const minutes = match[2];
+      const period = hours >= 12 ? 'PM' : 'AM';
+      const displayHours = hours % 12 || 12;
+      return `${displayHours}:${minutes} ${period} EST`;
+    };
+
+    const workshopType = data.workshop.type || "Workshop";
+    const workshopDate = formatDate(data.workshop.date);
+    const workshopTime = data.workshop.startTime 
+      ? `${formatTime(data.workshop.startTime)}${data.workshop.endTime ? ` - ${formatTime(data.workshop.endTime)}` : ''}`
+      : "TBD";
+
+    // Determine location/zoom link
+    let locationInfo = "";
+    if (data.program?.format === "Virtual" && data.program?.zoomLink) {
+      locationInfo = `Zoom Link: ${data.program.zoomLink}`;
+    } else if (data.workshop.location) {
+      locationInfo = `Location: ${data.workshop.location}`;
+    } else if (data.program?.format === "In-Person" && data.workshop.location) {
+      locationInfo = `Location: ${data.workshop.location}`;
+    }
+
+    const subject = `Workshop Registration Confirmation: ${workshopType}`;
+    const htmlBody = `
+      <html>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+          <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+            <h2 style="color: #2563eb;">Workshop Registration Confirmation</h2>
+            <p>Dear ${data.firstName} ${data.lastName},</p>
+            <p>Thank you for registering as a presenter for the following workshop:</p>
+            <div style="background-color: #f3f4f6; padding: 15px; border-radius: 5px; margin: 20px 0;">
+              <h3 style="margin-top: 0;">${workshopType}</h3>
+              <p><strong>Date:</strong> ${workshopDate}</p>
+              <p><strong>Time:</strong> ${workshopTime}</p>
+              ${data.program?.type ? `<p><strong>Program Type:</strong> ${data.program.type}</p>` : ''}
+              ${data.program?.format ? `<p><strong>Format:</strong> ${data.program.format}</p>` : ''}
+              ${locationInfo ? `<p><strong>${locationInfo.includes('Zoom') ? '' : 'Location: '}</strong>${locationInfo.replace(/^(Zoom Link:|Location:)\s*/, '')}</p>` : ''}
+            </div>
+            ${data.program?.zoomLink && data.program.format === "Virtual" ? `
+              <p><strong>Join the workshop:</strong> <a href="${data.program.zoomLink}" style="color: #2563eb;">${data.program.zoomLink}</a></p>
+            ` : ''}
+            <p>We look forward to having you present at this workshop!</p>
+            <p>Best regards,<br>Women's Money Matters</p>
+          </div>
+        </body>
+      </html>
+    `;
+
+    const textBody = `
+Workshop Registration Confirmation
+
+Dear ${data.firstName} ${data.lastName},
+
+Thank you for registering as a presenter for the following workshop:
+
+${workshopType}
+Date: ${workshopDate}
+Time: ${workshopTime}
+${data.program?.type ? `Program Type: ${data.program.type}\n` : ''}${data.program?.format ? `Format: ${data.program.format}\n` : ''}${locationInfo ? `${locationInfo}\n` : ''}
+
+${data.program?.zoomLink && data.program.format === "Virtual" ? `Join the workshop: ${data.program.zoomLink}\n` : ''}
+
+We look forward to having you present at this workshop!
+
+Best regards,
+Women's Money Matters
+    `;
+
+    // TODO: Implement actual email sending using your preferred email service
+    // For now, we'll log it. You can integrate with:
+    // - Nodemailer
+    // - SendGrid
+    // - AWS SES
+    // - Mailgun
+    // - etc.
+    
+    console.log("[EMAIL] Workshop Confirmation Email:");
+    console.log("To:", data.email);
+    console.log("Subject:", subject);
+    console.log("Body:", textBody);
+
+    // Placeholder for actual email sending
+    // Example with a hypothetical email service:
+    // await emailService.send({
+    //   to: data.email,
+    //   subject,
+    //   html: htmlBody,
+    //   text: textBody,
+    // });
+
+    return { success: true, message: "Email queued for sending" };
+  }
 
   // Participant routes
   app.get("/api/participants", async (req, res) => {

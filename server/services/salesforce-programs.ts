@@ -28,6 +28,8 @@ export interface SalesforceWorkshop {
   Name: string;
   Program__c: string;
   Date_Time__c?: string;
+  Date__c?: string;
+  Workshop_Type__c?: string;
   Presenter__c?: string;
   Site_Name__c?: string;
 }

@@ -85,6 +85,8 @@ export const workshops = pgTable("workshops", {
   name: text("name").notNull(),
   title: text("title"), // Legacy field, kept for compatibility
   topic: text("topic"),
+  type: text("type"), // Workshop Type (e.g., "What is Money?", "Managing Your Money")
+  format: text("format"), // Format (Virtual/In-Person) - can be inherited from program or set per workshop
   description: text("description"),
   date: timestamp("date").notNull(),
   startTime: text("start_time").notNull(),

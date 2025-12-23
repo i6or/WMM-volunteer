@@ -33,7 +33,7 @@ export default function PresenterOpportunities() {
       });
 
       if (!response.ok) throw new Error('Failed to fetch workshops');
-      return response.json() as Promise<Workshop[]>;
+      return response.json() as Promise<(Workshop & { programType?: string | null; programFormat?: string | null })[]>;
     },
   });
 
@@ -154,8 +154,14 @@ export default function PresenterOpportunities() {
   );
 }
 
+// Extended Workshop type with program information
+type WorkshopWithProgram = Workshop & {
+  programType?: string | null;
+  programFormat?: string | null;
+};
+
 // Workshop Card Component
-function WorkshopCard({ workshop }: { workshop: Workshop }) {
+function WorkshopCard({ workshop }: { workshop: WorkshopWithProgram }) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -171,7 +177,7 @@ function WorkshopCard({ workshop }: { workshop: Workshop }) {
       queryClient.invalidateQueries({ queryKey: ["/api/workshops"] });
       toast({
         title: "Sign up successful!",
-        description: `You've been registered as a presenter for ${workshop.name}`,
+        description: `You've been registered as a presenter for ${workshop.type || workshop.name}`,
       });
     },
     onError: (error: Error) => {
@@ -211,18 +217,22 @@ function WorkshopCard({ workshop }: { workshop: Workshop }) {
   const filledSpots = 0;
   const availableSpots = Math.max(0, totalSpots - filledSpots);
 
+  // Use workshop.type if available, otherwise fall back to name
+  const workshopType = workshop.type || workshop.name;
+
   return (
     <Card className="overflow-hidden hover:shadow-lg transition-shadow" data-testid={`card-workshop-${workshop.id}`}>
       <CardContent className="p-6">
-        {/* Workshop topic/name */}
+        {/* Workshop topic badge */}
         <div className="mb-3">
           <Badge className="mb-2 bg-blue-100 text-blue-800" data-testid={`badge-topic-${workshop.id}`}>
             {workshop.topic || "Workshop"}
           </Badge>
         </div>
 
-        <h3 className="font-semibold text-foreground mb-1 text-lg" data-testid={`text-name-${workshop.id}`}>
-          {workshop.name}
+        {/* Workshop Type (replaces workshop name) */}
+        <h3 className="font-semibold text-foreground mb-1 text-lg" data-testid={`text-type-${workshop.id}`}>
+          {workshopType}
         </h3>
 
         {/* Date */}
@@ -243,8 +253,28 @@ function WorkshopCard({ workshop }: { workshop: Workshop }) {
             </div>
           )}
 
-          {/* Location */}
-          {workshop.location && (
+          {/* Program Type */}
+          {workshop.programType && (
+            <div className="flex items-center text-sm text-muted-foreground">
+              <Presentation className="h-4 w-4 mr-2 flex-shrink-0" />
+              <span data-testid={`text-program-type-${workshop.id}`}>
+                Type: {workshop.programType}
+              </span>
+            </div>
+          )}
+
+          {/* Format */}
+          {workshop.programFormat && (
+            <div className="flex items-center text-sm text-muted-foreground">
+              <MapPin className="h-4 w-4 mr-2 flex-shrink-0" />
+              <span data-testid={`text-format-${workshop.id}`}>
+                Format: {workshop.programFormat}
+              </span>
+            </div>
+          )}
+
+          {/* Location (fallback if no format) */}
+          {!workshop.programFormat && workshop.location && (
             <div className="flex items-center text-sm text-muted-foreground">
               <MapPin className="h-4 w-4 mr-2 flex-shrink-0" />
               <span data-testid={`text-location-${workshop.id}`}>
@@ -270,13 +300,11 @@ function WorkshopCard({ workshop }: { workshop: Workshop }) {
             </span>
           </div>
           <Button
-            className="bg-blue-600 text-white hover:bg-blue-700"
-            size="sm"
             onClick={() => signupMutation.mutate()}
-            disabled={signupMutation.isPending || availableSpots <= 0}
+            disabled={signupMutation.isPending || availableSpots === 0}
             data-testid={`button-signup-${workshop.id}`}
           >
-            {signupMutation.isPending ? "Signing up..." : "Sign Up"}
+            Sign Up
           </Button>
         </div>
 

@@ -100,6 +100,8 @@ export class ProgramSyncService {
 
     // Use Name field directly (Workshop_Name__c doesn't exist)
     const workshopName = sfWorkshop.Name || "Unnamed Workshop";
+    // Workshop_Type__c contains the workshop type (e.g., "What is Money?", "Managing Your Money")
+    const workshopType = (sfWorkshop as any).Workshop_Type__c || null;
 
     return {
       salesforceId: sfWorkshop.Id,
@@ -107,6 +109,8 @@ export class ProgramSyncService {
       name: workshopName,
       title: workshopName, // Same as name since no topic field
       topic: null, // Workshop_Topic__c doesn't exist
+      type: workshopType, // Workshop Type from Salesforce
+      format: null, // Will be inherited from program if needed
       description: `Workshop: ${workshopName}`,
       date: workshopDate || new Date(),
       startTime: startTime,
