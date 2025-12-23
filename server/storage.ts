@@ -779,73 +779,76 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getAllWorkshops(filters?: { programId?: string; status?: string; search?: string; programStatus?: string }): Promise<Workshop[]> {
-    let conditions = [];
-
-    // Temporarily remove ALL filters to debug - show all workshops
-    // TODO: Re-enable filters once we confirm workshops are showing
-    
-    if (filters?.programId) {
-      conditions.push(eq(workshops.programId, filters.programId));
-    }
-
-    if (filters?.status && filters.status !== "all") {
-      conditions.push(eq(workshops.status, filters.status));
-    }
-
-    if (filters?.search) {
-      conditions.push(
-        sql`${workshops.name} ILIKE ${'%' + filters.search + '%'} OR ${workshops.title} ILIKE ${'%' + filters.search + '%'} OR ${workshops.type} ILIKE ${'%' + filters.search + '%'} OR ${workshops.description} ILIKE ${'%' + filters.search + '%'}`
-      );
-    }
-
-    // TEMPORARILY REMOVED: Program status filter - show ALL workshops regardless of program status
-    // This will help us debug if the program filter was the issue
-
-    // Join with programs to get programType and format
-    // Use LEFT JOIN so workshops without programs still show
-    let baseQuery = db
-      .select({
-        // Workshop fields
-        id: workshops.id,
-        salesforceId: workshops.salesforceId,
-        programId: workshops.programId,
-        name: workshops.name,
-        title: workshops.title,
-        topic: workshops.topic,
-        type: workshops.type,
-        format: workshops.format,
-        description: workshops.description,
-        date: workshops.date,
-        startTime: workshops.startTime,
-        endTime: workshops.endTime,
-        location: workshops.location,
-        maxParticipants: workshops.maxParticipants,
-        currentParticipants: workshops.currentParticipants,
-        status: workshops.status,
-        createdAt: workshops.createdAt,
-        updatedAt: workshops.updatedAt,
-        // Program fields (aliased to avoid conflicts)
-        programType: programs.programType,
-        programFormat: programs.format,
-      })
-      .from(workshops)
-      .leftJoin(programs, eq(workshops.programId, programs.id));
-
-    // Apply WHERE conditions only if we have any
-    if (conditions.length > 0) {
-      baseQuery = baseQuery.where(and(...conditions));
-    }
-
-    // Order by date ascending (closest upcoming workshops first)
     try {
-      // First test a simple query to see if workshops exist
-      const simpleTest = await db.select().from(workshops).limit(5);
-      console.log(`[getAllWorkshops] Simple test query found ${simpleTest.length} workshops`);
+      console.log('[getAllWorkshops] Starting...');
       
+      // TEMPORARILY: Return simple query without JOIN to test
+      // This will help us identify if the JOIN is the problem
+      const simpleResults = await db
+        .select()
+        .from(workshops)
+        .orderBy(workshops.date)
+        .limit(100);
+      
+      console.log(`[getAllWorkshops] Simple query (no JOIN) found ${simpleResults.length} workshops`);
+      
+      // For now, return workshops without program data
+      // We'll add the JOIN back once we confirm this works
+      return simpleResults.map((workshop: any) => ({
+        ...workshop,
+        programType: null,
+        programFormat: null,
+      }));
+      
+      /* TODO: Re-enable JOIN once simple query works
+      let conditions = [];
+      
+      if (filters?.programId) {
+        conditions.push(eq(workshops.programId, filters.programId));
+      }
+
+      if (filters?.status && filters.status !== "all") {
+        conditions.push(eq(workshops.status, filters.status));
+      }
+
+      if (filters?.search) {
+        conditions.push(
+          sql`${workshops.name} ILIKE ${'%' + filters.search + '%'} OR ${workshops.title} ILIKE ${'%' + filters.search + '%'} OR ${workshops.type} ILIKE ${'%' + filters.search + '%'} OR ${workshops.description} ILIKE ${'%' + filters.search + '%'}`
+        );
+      }
+
+      let baseQuery = db
+        .select({
+          id: workshops.id,
+          salesforceId: workshops.salesforceId,
+          programId: workshops.programId,
+          name: workshops.name,
+          title: workshops.title,
+          topic: workshops.topic,
+          type: workshops.type,
+          format: workshops.format,
+          description: workshops.description,
+          date: workshops.date,
+          startTime: workshops.startTime,
+          endTime: workshops.endTime,
+          location: workshops.location,
+          maxParticipants: workshops.maxParticipants,
+          currentParticipants: workshops.currentParticipants,
+          status: workshops.status,
+          createdAt: workshops.createdAt,
+          updatedAt: workshops.updatedAt,
+          programType: programs.programType,
+          programFormat: programs.format,
+        })
+        .from(workshops)
+        .leftJoin(programs, eq(workshops.programId, programs.id));
+
+      if (conditions.length > 0) {
+        baseQuery = baseQuery.where(and(...conditions));
+      }
+
       const results = await baseQuery.orderBy(workshops.date);
-      console.log(`[getAllWorkshops] Query with JOIN found ${results.length} workshops`);
       
-      // Map results to Workshop type with additional program fields
       return results.map((row: any) => {
         const { programType, programFormat, ...workshop } = row;
         return {
@@ -854,6 +857,7 @@ export class DatabaseStorage implements IStorage {
           programFormat,
         } as any;
       });
+      */
     } catch (error) {
       console.error('[getAllWorkshops] Query error:', error);
       console.error('[getAllWorkshops] Error details:', String(error));
