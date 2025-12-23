@@ -45,6 +45,30 @@ const participantQuerySchema = z.object({
 const CODE_VERSION = "2024-12-11-v17-lead-if-no-contact";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Auto-migrate: Add type and format columns to workshops table if they don't exist
+  try {
+    const columnsResult = await db.execute(sql`
+      SELECT column_name FROM information_schema.columns
+      WHERE table_name = 'workshops' AND column_name IN ('type', 'format')
+    `);
+    const existingColumns = columnsResult.rows.map((r: any) => r.column_name);
+    
+    if (!existingColumns.includes('type')) {
+      console.log('[AUTO-MIGRATION] Adding type column to workshops table...');
+      await db.execute(sql`ALTER TABLE workshops ADD COLUMN IF NOT EXISTS type TEXT`);
+      console.log('[AUTO-MIGRATION] ✓ Added type column');
+    }
+    
+    if (!existingColumns.includes('format')) {
+      console.log('[AUTO-MIGRATION] Adding format column to workshops table...');
+      await db.execute(sql`ALTER TABLE workshops ADD COLUMN IF NOT EXISTS format TEXT`);
+      console.log('[AUTO-MIGRATION] ✓ Added format column');
+    }
+  } catch (error) {
+    console.error('[AUTO-MIGRATION] Error checking/adding columns:', error);
+    // Don't fail startup if migration fails - it might be a permissions issue
+  }
+
   // Version check endpoint
   app.get("/api/version", (req, res) => {
     res.json({ version: CODE_VERSION, timestamp: new Date().toISOString() });
