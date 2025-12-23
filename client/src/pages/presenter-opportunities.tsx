@@ -5,7 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Search, Calendar, Clock, MapPin, Users, Presentation } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Search, Calendar, Clock, MapPin, Users, Presentation, CheckSquare } from "lucide-react";
 import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
 import { type Workshop } from "@shared/schema";
@@ -16,6 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 export default function PresenterOpportunities() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+  const [selectedWorkshops, setSelectedWorkshops] = useState<Set<string>>(new Set());
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -113,12 +115,52 @@ export default function PresenterOpportunities() {
                 </div>
               </div>
 
-              <div className="text-sm text-muted-foreground" data-testid="text-results-count">
-                Showing {workshops?.length || 0} workshops
+              <div className="flex items-center gap-4">
+                {selectedWorkshops.size > 0 && (
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="text-sm">
+                      {selectedWorkshops.size} selected
+                    </Badge>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setSelectedWorkshops(new Set())}
+                    >
+                      Clear
+                    </Button>
+                  </div>
+                )}
+                <div className="text-sm text-muted-foreground" data-testid="text-results-count">
+                  Showing {workshops?.length || 0} workshops
+                </div>
               </div>
             </div>
           </CardContent>
         </Card>
+
+        {/* Bulk Signup Button */}
+        {selectedWorkshops.size > 0 && (
+          <Card className="mb-6 border-green-500 bg-green-50">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <CheckSquare className="h-5 w-5 text-green-600" />
+                  <span className="font-medium text-green-900">
+                    {selectedWorkshops.size} workshop{selectedWorkshops.size !== 1 ? 's' : ''} selected
+                  </span>
+                </div>
+                <BulkSignupButton
+                  selectedWorkshopIds={Array.from(selectedWorkshops)}
+                  workshops={workshops || []}
+                  onSuccess={() => {
+                    setSelectedWorkshops(new Set());
+                    queryClient.invalidateQueries({ queryKey: ["/api/workshops"] });
+                  }}
+                />
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Workshop Cards */}
         {isLoading ? (
@@ -126,7 +168,28 @@ export default function PresenterOpportunities() {
         ) : workshops && workshops.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
             {workshops.map((workshop) => (
-              <WorkshopCard key={workshop.id} workshop={workshop} />
+              <WorkshopCard
+                key={workshop.id}
+                workshop={workshop}
+                isSelected={selectedWorkshops.has(workshop.id)}
+                onSelectChange={(selected) => {
+                  const newSelected = new Set(selectedWorkshops);
+                  if (selected) {
+                    if (newSelected.size >= 10) {
+                      toast({
+                        title: "Maximum reached",
+                        description: "You can select up to 10 workshops at a time.",
+                        variant: "destructive",
+                      });
+                      return;
+                    }
+                    newSelected.add(workshop.id);
+                  } else {
+                    newSelected.delete(workshop.id);
+                  }
+                  setSelectedWorkshops(newSelected);
+                }}
+              />
             ))}
           </div>
         ) : (
@@ -160,8 +223,71 @@ type WorkshopWithProgram = Workshop & {
   programFormat?: string | null;
 };
 
+// Bulk Signup Button Component
+function BulkSignupButton({ 
+  selectedWorkshopIds, 
+  workshops,
+  onSuccess 
+}: { 
+  selectedWorkshopIds: string[];
+  workshops: WorkshopWithProgram[];
+  onSuccess: () => void;
+}) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const bulkSignupMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest("POST", "/api/workshop-signups/bulk", {
+        workshopIds: selectedWorkshopIds,
+        role: "presenter",
+        status: "confirmed"
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/workshops"] });
+      const workshopNames = selectedWorkshopIds
+        .map(id => workshops.find(w => w.id === id)?.type || workshops.find(w => w.id === id)?.name)
+        .filter(Boolean)
+        .slice(0, 3)
+        .join(", ");
+      const moreCount = selectedWorkshopIds.length > 3 ? ` and ${selectedWorkshopIds.length - 3} more` : "";
+      toast({
+        title: "Sign up successful!",
+        description: `You've been registered as a presenter for ${workshopNames}${moreCount}`,
+      });
+      onSuccess();
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Sign up failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  return (
+    <Button
+      onClick={() => bulkSignupMutation.mutate()}
+      disabled={bulkSignupMutation.isPending}
+      className="bg-green-600 hover:bg-green-700"
+    >
+      {bulkSignupMutation.isPending ? "Signing up..." : `Sign Up for ${selectedWorkshopIds.length} Workshop${selectedWorkshopIds.length !== 1 ? 's' : ''}`}
+    </Button>
+  );
+}
+
 // Workshop Card Component
-function WorkshopCard({ workshop }: { workshop: WorkshopWithProgram }) {
+function WorkshopCard({ 
+  workshop, 
+  isSelected, 
+  onSelectChange 
+}: { 
+  workshop: WorkshopWithProgram;
+  isSelected: boolean;
+  onSelectChange: (selected: boolean) => void;
+}) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -212,8 +338,8 @@ function WorkshopCard({ workshop }: { workshop: WorkshopWithProgram }) {
     return `${displayHours}:${minutes} ${period} EST`;
   };
 
-  // Default spots for presenters
-  const totalSpots = 2;
+  // Default spots for presenters - changed to 1 per workshop
+  const totalSpots = 1;
   const filledSpots = 0;
   const availableSpots = Math.max(0, totalSpots - filledSpots);
 
@@ -221,11 +347,24 @@ function WorkshopCard({ workshop }: { workshop: WorkshopWithProgram }) {
   const workshopType = workshop.type || workshop.name;
 
   return (
-    <Card className="overflow-hidden hover:shadow-lg transition-shadow" data-testid={`card-workshop-${workshop.id}`}>
+    <Card className={`overflow-hidden hover:shadow-lg transition-shadow ${isSelected ? 'ring-2 ring-green-500' : ''}`} data-testid={`card-workshop-${workshop.id}`}>
       <CardContent className="p-6">
-        {/* Workshop topic badge */}
-        <div className="mb-3">
-          <Badge className="mb-2 bg-blue-100 text-blue-800" data-testid={`badge-topic-${workshop.id}`}>
+        {/* Checkbox for selection */}
+        <div className="flex items-start justify-between mb-3">
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              checked={isSelected}
+              onCheckedChange={(checked) => onSelectChange(checked === true)}
+              id={`workshop-${workshop.id}`}
+            />
+            <label
+              htmlFor={`workshop-${workshop.id}`}
+              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+            >
+              Select for bulk signup
+            </label>
+          </div>
+          <Badge className="bg-blue-100 text-blue-800" data-testid={`badge-topic-${workshop.id}`}>
             {workshop.topic || "Workshop"}
           </Badge>
         </div>
@@ -296,13 +435,14 @@ function WorkshopCard({ workshop }: { workshop: WorkshopWithProgram }) {
           <div className="flex items-center space-x-2">
             <Users className="h-4 w-4 text-muted-foreground" />
             <span className="text-sm text-muted-foreground" data-testid={`text-spots-${workshop.id}`}>
-              {filledSpots}/{totalSpots} presenters
+              {filledSpots}/{totalSpots} presenter
             </span>
           </div>
           <Button
             onClick={() => signupMutation.mutate()}
             disabled={signupMutation.isPending || availableSpots === 0}
             data-testid={`button-signup-${workshop.id}`}
+            size="sm"
           >
             Sign Up
           </Button>

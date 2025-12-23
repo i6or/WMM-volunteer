@@ -2423,17 +2423,32 @@ print(json.dumps({
         }
       }
 
-      // Create workshop signup record (you may need to create a workshop_signups table)
-      // For now, we'll just log it and send the email
-      const signupData = {
-        workshopId,
-        volunteerId: volunteer?.id || null,
-        role: role || "presenter",
-        status: status || "confirmed",
-        email: email || null,
-        firstName: firstName || null,
-        lastName: lastName || null,
-      };
+      // Create participant workshop record
+      if (volunteer) {
+        // Check if participant exists, create if not
+        let participant = await storage.getParticipantByEmail(email);
+        if (!participant) {
+          participant = await storage.createParticipant({
+            firstName: volunteer.firstName,
+            lastName: volunteer.lastName,
+            email: volunteer.email,
+            phone: volunteer.phone || null,
+            status: "active",
+          });
+        }
+
+        // Register participant for workshop
+        await storage.registerParticipantForWorkshop({
+          participantId: participant.id,
+          workshopId: workshop.id,
+          notes: role ? `Role: ${role}` : null,
+        });
+
+        // Update workshop current participants count
+        await storage.updateWorkshop(workshop.id, {
+          currentParticipants: (workshop.currentParticipants || 0) + 1,
+        });
+      }
 
       // Send confirmation email
       if (email) {
@@ -2464,10 +2479,147 @@ print(json.dumps({
       res.status(201).json({
         success: true,
         message: "Successfully signed up for workshop",
-        signup: signupData,
+        workshopId: workshop.id,
       });
     } catch (error) {
       console.error("[WORKSHOP-SIGNUP] Error:", error);
+      res.status(500).json({ message: "Internal server error", error: String(error) });
+    }
+  });
+
+  // Bulk Workshop Signups endpoint
+  app.post("/api/workshop-signups/bulk", async (req, res) => {
+    try {
+      const { workshopIds, role, status, email, firstName, lastName } = req.body;
+
+      if (!workshopIds || !Array.isArray(workshopIds) || workshopIds.length === 0) {
+        return res.status(400).json({ message: "Workshop IDs array is required" });
+      }
+
+      if (workshopIds.length > 10) {
+        return res.status(400).json({ message: "Maximum 10 workshops can be selected at once" });
+      }
+
+      // Get volunteer by email if provided, otherwise create a temporary record
+      let volunteer = null;
+      if (email) {
+        volunteer = await storage.getVolunteerByEmail(email);
+        if (!volunteer && firstName && lastName) {
+          volunteer = await storage.createVolunteer({
+            firstName,
+            lastName,
+            email,
+            status: "active",
+          });
+        }
+      } else if (firstName && lastName) {
+        // Create a temporary volunteer record if no email provided
+        volunteer = await storage.createVolunteer({
+          firstName,
+          lastName,
+          email: `temp-${Date.now()}@temp.local`, // Temporary email
+          status: "active",
+        });
+      }
+
+      if (!volunteer) {
+        return res.status(400).json({ message: "Volunteer information (email or name) is required" });
+      }
+
+      // Get or create participant
+      const participantEmail = email || volunteer.email;
+      let participant = await storage.getParticipantByEmail(participantEmail);
+      if (!participant) {
+        participant = await storage.createParticipant({
+          firstName: volunteer.firstName,
+          lastName: volunteer.lastName,
+          email: participantEmail,
+          phone: volunteer.phone || null,
+          status: "active",
+        });
+      }
+
+      const results = [];
+      const errors = [];
+
+      // Process each workshop signup
+      for (const workshopId of workshopIds) {
+        try {
+          const workshop = await storage.getWorkshop(workshopId);
+          if (!workshop) {
+            errors.push({ workshopId, error: "Workshop not found" });
+            continue;
+          }
+
+          // Check if already registered
+          const existingRegistrations = await storage.getParticipantWorkshops(
+            participant.id,
+            workshopId
+          );
+          if (existingRegistrations.length > 0) {
+            errors.push({ workshopId, error: "Already registered for this workshop" });
+            continue;
+          }
+
+          // Register participant for workshop
+          await storage.registerParticipantForWorkshop({
+            participantId: participant.id,
+            workshopId: workshop.id,
+            notes: role ? `Role: ${role}` : null,
+          });
+
+          // Update workshop current participants count
+          await storage.updateWorkshop(workshop.id, {
+            currentParticipants: (workshop.currentParticipants || 0) + 1,
+          });
+
+          results.push({ workshopId, success: true });
+
+          // Get program details for email
+          let program = null;
+          if (workshop.programId) {
+            program = await storage.getProgram(workshop.programId);
+          }
+
+          // Send confirmation email for each workshop (only if valid email provided)
+          if (email && !email.startsWith('temp-')) {
+            try {
+              await sendWorkshopConfirmationEmail({
+                email,
+                firstName: firstName || volunteer.firstName,
+                lastName: lastName || volunteer.lastName,
+                workshop: {
+                  type: workshop.type || workshop.name,
+                  date: workshop.date,
+                  startTime: workshop.startTime,
+                  endTime: workshop.endTime,
+                  location: workshop.location,
+                },
+                program: program ? {
+                  type: program.programType,
+                  format: program.format,
+                  zoomLink: program.zoomLink,
+                } : null,
+              });
+            } catch (emailError) {
+              console.error(`[BULK-SIGNUP] Failed to send email for workshop ${workshopId}:`, emailError);
+              // Don't fail the signup if email fails
+            }
+          }
+        } catch (error) {
+          console.error(`[BULK-SIGNUP] Error processing workshop ${workshopId}:`, error);
+          errors.push({ workshopId, error: String(error) });
+        }
+      }
+
+      res.status(201).json({
+        success: results.length > 0,
+        message: `Successfully signed up for ${results.length} workshop${results.length !== 1 ? 's' : ''}`,
+        results,
+        errors: errors.length > 0 ? errors : undefined,
+      });
+    } catch (error) {
+      console.error("[BULK-SIGNUP] Error:", error);
       res.status(500).json({ message: "Internal server error", error: String(error) });
     }
   });
