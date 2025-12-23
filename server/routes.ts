@@ -2267,7 +2267,25 @@ print(json.dumps({
   // Workshop routes
   app.get("/api/workshops", async (req, res) => {
     try {
-      const filters = workshopQuerySchema.parse(req.query);
+      // Clean up query parameters - convert empty strings to undefined
+      const cleanedQuery: any = {};
+      if (req.query.programId && req.query.programId !== '') {
+        cleanedQuery.programId = req.query.programId;
+      }
+      if (req.query.status && req.query.status !== '' && req.query.status !== 'all') {
+        cleanedQuery.status = req.query.status;
+      }
+      if (req.query.search && req.query.search !== '') {
+        cleanedQuery.search = req.query.search;
+      }
+      if (req.query.programStatus && req.query.programStatus !== '') {
+        cleanedQuery.programStatus = req.query.programStatus;
+      }
+
+      console.log('[WORKSHOPS] Query params:', req.query);
+      console.log('[WORKSHOPS] Cleaned params:', cleanedQuery);
+
+      const filters = workshopQuerySchema.parse(cleanedQuery);
       const workshops = await storage.getAllWorkshops(filters);
       
       // Debug logging
@@ -2282,7 +2300,14 @@ print(json.dumps({
       res.json(workshops);
     } catch (error) {
       console.error('[WORKSHOPS] Error:', error);
-      res.status(400).json({ message: "Invalid query parameters" });
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ 
+          message: "Invalid query parameters", 
+          errors: error.errors,
+          receivedQuery: req.query
+        });
+      }
+      res.status(500).json({ message: "Internal server error", error: String(error) });
     }
   });
 
