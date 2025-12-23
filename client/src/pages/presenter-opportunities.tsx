@@ -547,18 +547,28 @@ function WorkshopCard({
             </div>
           )}
 
-          {/* Format */}
-          {workshop.programFormat && (
+          {/* Format - from Workshop Format__c field */}
+          {workshop.format && (
             <div className="flex items-center text-sm text-muted-foreground">
               <MapPin className="h-4 w-4 mr-2 flex-shrink-0" />
               <span data-testid={`text-format-${workshop.id}`}>
+                Format: {workshop.format}
+              </span>
+            </div>
+          )}
+
+          {/* Program Format (fallback if workshop format not available) */}
+          {!workshop.format && workshop.programFormat && (
+            <div className="flex items-center text-sm text-muted-foreground">
+              <MapPin className="h-4 w-4 mr-2 flex-shrink-0" />
+              <span data-testid={`text-program-format-${workshop.id}`}>
                 Format: {workshop.programFormat}
               </span>
             </div>
           )}
 
           {/* Location (fallback if no format) */}
-          {!workshop.programFormat && workshop.location && (
+          {!workshop.format && !workshop.programFormat && workshop.location && (
             <div className="flex items-center text-sm text-muted-foreground">
               <MapPin className="h-4 w-4 mr-2 flex-shrink-0" />
               <span data-testid={`text-location-${workshop.id}`}>

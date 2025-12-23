@@ -30,6 +30,7 @@ export interface SalesforceWorkshop {
   Date_Time__c?: string;
   Date__c?: string;
   Workshop_Type__c?: string; // EXISTING field in Salesforce - Workshop Type (e.g., "What is Money?", "Managing Your Money")
+  Format__c?: string; // Format field from Salesforce (Virtual, In-Person, etc.)
   Topic__c?: string; // Topic field (newly created in SF)
   Workshop_Topic__c?: string; // Alternative field name for Topic
   Presenter__c?: string;
@@ -260,11 +261,11 @@ try:
         )
     
     # Query Workshops for this Program
-    # Including Workshop_Type__c, Topic__c, and Date__c based on actual SF schema
+    # Including Workshop_Type__c, Format__c, Topic__c, and Date__c based on actual SF schema
     workshops_query1 = f"""
         SELECT Id, Name, Program__c,
                Date_Time__c, Date__c, Workshop_Type__c,
-               Topic__c, Workshop_Topic__c,
+               Format__c, Topic__c, Workshop_Topic__c,
                Presenter__c, Site_Name__c
         FROM Workshop__c
         WHERE Program__c = '{programId}'
@@ -275,7 +276,7 @@ try:
     workshops_query2 = f"""
         SELECT Id, Name, Program__c,
                Date_Time__c, Date__c, Workshop_Type__c,
-               Topic__c, Workshop_Topic__c,
+               Format__c, Topic__c, Workshop_Topic__c,
                Presenter__c, Site_Name__c
         FROM Workshop__c
         WHERE Program__c = '{programId}'

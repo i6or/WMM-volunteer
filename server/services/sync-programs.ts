@@ -103,6 +103,8 @@ export class ProgramSyncService {
     // Workshop_Type__c is the EXISTING field in Salesforce - use this for the workshop type
     // This field contains the workshop type without program name (e.g., "What is Money?", "Managing Your Money")
     const workshopType = (sfWorkshop as any).Workshop_Type__c || null;
+    // Format__c from Salesforce Workshop object
+    const workshopFormat = (sfWorkshop as any).Format__c || null;
     // Topic field - try both possible field names
     const workshopTopic = (sfWorkshop as any).Topic__c || (sfWorkshop as any).Workshop_Topic__c || null;
 
@@ -113,7 +115,7 @@ export class ProgramSyncService {
       title: workshopName, // Legacy field
       topic: workshopTopic, // Topic from Salesforce (newly created field)
       workshopType: workshopType, // Workshop Type from Salesforce Workshop_Type__c (e.g., "What is Money?")
-      format: null, // Will be inherited from program if needed
+      format: workshopFormat, // Format from Salesforce Format__c (Virtual, In-Person, etc.)
       description: null, // Remove redundant description that includes workshop name
       date: workshopDate || new Date(),
       startTime: startTime,
