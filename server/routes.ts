@@ -2309,16 +2309,22 @@ print(json.dumps({
       console.log('[WORKSHOPS] Cleaned params:', cleanedQuery);
 
       const filters = workshopQuerySchema.parse(cleanedQuery);
+      
+      // First check if workshops exist at all
+      const countResult = await db.execute(sql`SELECT COUNT(*) as count FROM workshops`);
+      const totalCount = parseInt((countResult.rows[0] as any)?.count || '0', 10);
+      console.log(`[WORKSHOPS] Total workshops in DB: ${totalCount}`);
+      
+      if (totalCount === 0) {
+        console.log('[WORKSHOPS] No workshops found in database');
+        return res.json([]);
+      }
+      
       const workshops = await storage.getAllWorkshops(filters);
       
       // Debug logging
       console.log(`[WORKSHOPS] Query returned ${workshops.length} workshops`);
-      if (workshops.length === 0) {
-        // Check total count without filters
-        const allWorkshops = await db.execute(sql`SELECT COUNT(*) as count FROM workshops`);
-        const totalCount = (allWorkshops.rows[0] as any)?.count || 0;
-        console.log(`[WORKSHOPS] Total workshops in DB: ${totalCount}`);
-      }
+      console.log(`[WORKSHOPS] First workshop sample:`, workshops.length > 0 ? JSON.stringify(workshops[0], null, 2) : 'none');
       
       res.json(workshops);
     } catch (error) {

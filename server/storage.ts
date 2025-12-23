@@ -780,20 +780,45 @@ export class DatabaseStorage implements IStorage {
 
   async getAllWorkshops(filters?: { programId?: string; status?: string; search?: string; programStatus?: string }): Promise<Workshop[]> {
     try {
-      console.log('[getAllWorkshops] Starting...');
+      console.log('[getAllWorkshops] Starting with filters:', filters);
       
-      // TEMPORARILY: Return simple query without JOIN to test
-      // This will help us identify if the JOIN is the problem
-      const simpleResults = await db
-        .select()
-        .from(workshops)
-        .orderBy(workshops.date)
-        .limit(100);
+      // Build conditions
+      let conditions = [];
       
-      console.log(`[getAllWorkshops] Simple query (no JOIN) found ${simpleResults.length} workshops`);
+      if (filters?.programId) {
+        conditions.push(eq(workshops.programId, filters.programId));
+      }
+
+      if (filters?.status && filters.status !== "all") {
+        conditions.push(eq(workshops.status, filters.status));
+      }
+
+      if (filters?.search) {
+        conditions.push(
+          sql`${workshops.name} ILIKE ${'%' + filters.search + '%'} OR ${workshops.title} ILIKE ${'%' + filters.search + '%'} OR ${workshops.type} ILIKE ${'%' + filters.search + '%'} OR ${workshops.description} ILIKE ${'%' + filters.search + '%'}`
+        );
+      }
+
+      // Simple query without JOIN first
+      let query = db.select().from(workshops);
       
-      // For now, return workshops without program data
-      // We'll add the JOIN back once we confirm this works
+      if (conditions.length > 0) {
+        query = query.where(and(...conditions));
+      }
+      
+      const simpleResults = await query.orderBy(workshops.date).limit(100);
+      
+      console.log(`[getAllWorkshops] Query found ${simpleResults.length} workshops`);
+      if (simpleResults.length > 0) {
+        console.log(`[getAllWorkshops] First workshop:`, {
+          id: simpleResults[0].id,
+          name: simpleResults[0].name,
+          type: simpleResults[0].type,
+          date: simpleResults[0].date
+        });
+      }
+      
+      // Return workshops with null program fields for now
       return simpleResults.map((workshop: any) => ({
         ...workshop,
         programType: null,
