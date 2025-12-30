@@ -1,0 +1,56 @@
+# Cursor AI Rules for WMM Volunteer Management System
+
+## Project Context
+This is a volunteer management system for Women's Money Matters, a nonprofit focused on financial empowerment for women and girls living on low incomes.
+
+## Technology Stack
+- **Frontend**: React 18 + TypeScript, Vite, Shadcn/ui, Tailwind CSS, TanStack Query, Wouter
+- **Backend**: Node.js, Express.js, TypeScript, Drizzle ORM
+- **Database**: PostgreSQL (Neon serverless)
+- **Integration**: Salesforce CRM
+
+## Code Style Guidelines
+- Use TypeScript for all new code
+- Follow existing patterns in the codebase
+- Use functional components with hooks
+- Prefer named exports over default exports
+- Use Zod for validation schemas
+- Use React Hook Form for form handling
+- Maintain type safety throughout
+
+## File Structure
+- `client/` - Frontend React application
+- `server/` - Backend Express API
+- `shared/` - Shared TypeScript types and schemas
+- `server/services/` - Business logic and external integrations
+
+## Branding
+- Color scheme: Green (matching Women's Money Matters branding)
+- Communication style: Simple, everyday language
+- Focus on financial empowerment messaging
+
+## Key Entities
+- Volunteers: Profile management with interests, contact info, status
+- Opportunities: Event management with categories, scheduling, capacity
+- Programs: Financial Futures (8-week, ages 22+) and Life Launch Collective (12-week, ages 16-22)
+
+## Volunteer Roles
+- Financial Coaches (1-to-1 mentoring)
+- Workshop Presenters (group education)
+- Program Support (administrative assistance)
+
+## Best Practices
+- Always validate user input with Zod schemas
+- Use TanStack Query for server state management
+- Follow RESTful API conventions
+- Maintain database schema with Drizzle migrations
+- Write clear, descriptive commit messages
+- Test API endpoints before committing
+
+## Common Patterns
+- Use `@shared` alias for shared types
+- API routes in `server/routes.ts`
+- Services in `server/services/`
+- React components in `client/src/components/`
+- Pages in `client/src/pages/`
+
