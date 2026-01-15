@@ -789,9 +789,14 @@ export class DatabaseStorage implements IStorage {
       ninetyDaysLater.setDate(ninetyDaysLater.getDate() + 90);
       ninetyDaysLater.setHours(23, 59, 59, 999); // End of day 90 days from now
       
-      // Build SQL query with filters for active workshops and date range
+      console.log('[getAllWorkshops] Date range filter:', {
+        today: today.toISOString(),
+        ninetyDaysLater: ninetyDaysLater.toISOString()
+      });
+      
+      // Build SQL query with filters based on date range only
+      // "Active" workshops are those with dates from today through next 90 days
       const conditions: any[] = [
-        sql`status = 'active'`,
         sql`date >= ${today.toISOString()}`,
         sql`date <= ${ninetyDaysLater.toISOString()}`
       ];
