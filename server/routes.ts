@@ -4,8 +4,8 @@ import { storage } from "./storage";
 import { salesforceService } from "./services/salesforce";
 import { ProgramSyncService } from "./services/sync-programs";
 import { db } from "./db";
-import { sql, eq } from "drizzle-orm";
-import { insertVolunteerSchema, insertOpportunitySchema, insertVolunteerSignupSchema, insertProgramSchema, insertWorkshopSchema, insertParticipantSchema, insertParticipantWorkshopSchema, workshops, programs } from "@shared/schema";
+import { sql, eq, and, or } from "drizzle-orm";
+import { insertVolunteerSchema, insertOpportunitySchema, insertVolunteerSignupSchema, insertProgramSchema, insertWorkshopSchema, insertParticipantSchema, insertParticipantWorkshopSchema, workshops, programs, opportunities } from "@shared/schema";
 import { z } from "zod";
 
 const volunteerQuerySchema = z.object({
@@ -529,6 +529,117 @@ print(json.dumps({
       return res.status(404).json({ message: "Opportunity not found" });
     }
     res.status(204).send();
+  });
+
+  // Generate opportunities from programs
+  app.post("/api/opportunities/generate-from-programs", async (req, res) => {
+    try {
+      // Get all active and upcoming programs
+      const allPrograms = await db
+        .select()
+        .from(programs)
+        .where(or(eq(programs.status, 'active'), eq(programs.status, 'upcoming')))
+        .orderBy(programs.startDate);
+
+      let created = 0;
+      let skipped = 0;
+      const errors: string[] = [];
+
+      for (const program of allPrograms) {
+        try {
+          // Check if program already has a Financial Coaching opportunity
+          const existingOpps = await db
+            .select()
+            .from(opportunities)
+            .where(
+              and(
+                eq(opportunities.programId, program.id),
+                eq(opportunities.category, 'Financial Coaching')
+              )
+            )
+            .limit(1);
+
+          if (existingOpps.length > 0) {
+            skipped++;
+            continue;
+          }
+
+          // Skip programs without start dates
+          if (!program.startDate) {
+            skipped++;
+            continue;
+          }
+
+          // Parse workshop time
+          let startTime = "6:00 PM";
+          let endTime = "7:30 PM";
+          if (program.workshopTime) {
+            // Parse time from format like "18:00:00.000Z" or "6:00 PM"
+            const timeMatch = program.workshopTime.match(/^(\d{1,2}):(\d{2})/);
+            if (timeMatch) {
+              const hours = parseInt(timeMatch[1], 10);
+              const minutes = timeMatch[2];
+              const period = hours >= 12 ? 'PM' : 'AM';
+              const displayHours = hours % 12 || 12;
+              startTime = `${displayHours}:${minutes} ${period}`;
+              // Estimate end time (1.5 hours later)
+              const endHours = (hours + 1) % 24;
+              const endDisplayHours = endHours % 12 || 12;
+              const endPeriod = endHours >= 12 ? 'PM' : 'AM';
+              endTime = `${endDisplayHours}:${minutes} ${endPeriod}`;
+            }
+          }
+
+          // Determine location
+          let location = "Virtual";
+          if (program.format) {
+            location = program.format === "Virtual" ? "Virtual Zoom Meeting" : program.format;
+          }
+
+          // Determine organization
+          const organization = program.primaryProgramPartner || "Women's Money Matters";
+
+          // Create opportunity
+          const opportunityData = {
+            programId: program.id,
+            workshopId: null,
+            title: `${program.name || program.programType || 'Program'} - Financial Coach`,
+            description: `Financial Coaching opportunity for ${program.name || program.programType || 'this program'}. ${program.numberOfWorkshops ? `${program.numberOfWorkshops} ${program.workshopFrequency?.toLowerCase() || 'weekly'} workshops` : 'Multiple workshops'}. Start Date: ${new Date(program.startDate).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' })}`,
+            organization: organization,
+            category: "Financial Coaching",
+            date: new Date(program.startDate),
+            startTime: startTime,
+            endTime: endTime,
+            location: location,
+            totalSpots: 20, // Default max coaches per program
+            filledSpots: program.numberOfCoaches || 0,
+            status: "active" as const,
+            displayOnWebsite: true,
+          };
+
+          await storage.createOpportunity(opportunityData);
+          created++;
+        } catch (error) {
+          errors.push(`Program ${program.id} (${program.name}): ${error}`);
+          console.error(`Error creating opportunity for program ${program.id}:`, error);
+        }
+      }
+
+      res.json({
+        success: true,
+        message: `Generated opportunities from programs`,
+        created,
+        skipped,
+        total: allPrograms.length,
+        errors: errors.length > 0 ? errors : undefined,
+      });
+    } catch (error) {
+      console.error('Failed to generate opportunities:', error);
+      res.status(500).json({
+        success: false,
+        message: `Failed to generate opportunities: ${error}`,
+      });
+    }
   });
 
   // Volunteer signup routes

@@ -102,3 +102,5 @@ Invoke-WebRequest -Uri "http://localhost:5000/api/debug/db-connection" -UseBasic
 4. **Database connection**: Verify DATABASE_URL is correct and database is accessible
 
 
+
+

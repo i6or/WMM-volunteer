@@ -14,7 +14,7 @@ export class SalesforceService {
   public programService: SalesforceProgramService;
 
   constructor() {
-    // Normalize domain - remove protocol and trailing slashes
+    // Normalize domain - remove protocol and trailing slashes, but keep full hostname
     let domain = process.env.SALESFORCE_DOMAIN || 'login';
     if (domain.includes('://')) {
       // Extract domain from URL (e.g., https://wmm.lightning.force.com -> wmm.lightning.force.com)
@@ -26,17 +26,14 @@ export class SalesforceService {
         domain = domain.replace(/^https?:\/\//, '').replace(/\/$/, '');
       }
     }
-    // For custom domains, simple_salesforce expects just the hostname
-    // For standard domains, use 'login' or 'test'
-    if (domain.includes('lightning.force.com') || domain.includes('my.salesforce.com')) {
-      // Extract the subdomain (e.g., 'wmm' from 'wmm.lightning.force.com')
-      const parts = domain.split('.');
-      if (parts.length >= 3 && parts[0] !== 'login' && parts[0] !== 'test') {
-        domain = parts[0]; // Use subdomain as domain for custom instances
-      } else {
-        domain = 'login'; // Fallback to login
-      }
+    // Keep the full hostname for lightning domains so Python scripts can detect them
+    // Only normalize to 'login' or 'test' for standard Salesforce login domains
+    if (domain === 'login.salesforce.com' || domain === 'test.salesforce.com') {
+      // Extract just 'login' or 'test' for standard domains
+      domain = domain.split('.')[0];
     }
+    // For custom lightning domains, keep the full hostname (e.g., 'wmm.lightning.force.com')
+    // This allows Python scripts to detect 'lightning.force.com' in the domain string
     
     this.config = {
       username: process.env.SALESFORCE_USERNAME || '',
@@ -470,27 +467,36 @@ except Exception as e:
     const scriptContent = `
 import sys
 import os
-sys.path.append(os.path.expanduser('~/.pythonlibs'))
+
+# Try multiple paths for Python libraries in different environments
+possible_paths = [
+    os.path.expanduser('~/.pythonlibs'),
+    '.pythonlibs',  # Railway local installation
+    '/app/.pythonlibs',  # Railway container path
+    os.path.join(os.getcwd(), '.pythonlibs')
+]
+
+for path in possible_paths:
+    if os.path.exists(path):
+        sys.path.insert(0, path)
+        break
 
 try:
     from simple_salesforce import Salesforce
     import json
     
-    # Domain should be 'login', 'test', or custom domain subdomain (e.g., 'wmm')
+    # Handle custom lightning domain - same pattern as other functions
     domain = '${this.config.domain}'
-    
-    # For custom domains, we need to use instance_url instead
-    if domain not in ['login', 'test'] and '.' not in domain:
-        # Custom domain - use instance_url parameter
-        instance_url = f"https://{domain}.my.salesforce.com"
+    if 'lightning.force.com' in domain:
+        # For custom My Domain, we need to use the instance_url parameter
         sf = Salesforce(
             username='${this.config.username}',
             password='${this.config.password}',
             security_token='${this.config.securityToken}',
-            instance_url=instance_url
+            instance_url=f'https://{domain}'
         )
     else:
-        # Standard domain
+        # Standard domain (login/test)
         sf = Salesforce(
             username='${this.config.username}',
             password='${this.config.password}',

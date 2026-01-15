@@ -57,11 +57,7 @@ export default function Home() {
               <p className="text-green-100 text-lg mb-6 max-w-2xl">
                 Join our mission to build financial wellness, confidence, and security for women and girls living on low incomes through coaching and workshops.
               </p>
-              <div className="flex gap-4">
-                <Button className="bg-white text-primary hover:bg-green-50" data-testid="button-browse" asChild>
-                  <a href="/coaching-opportunities">Browse Coaching Opportunities</a>
-                </Button>
-              </div>
+              {/* Removed "Browse Coaching Opportunities" button - programs are displayed below */}
             </div>
             <div className="absolute right-0 top-0 w-32 h-32 bg-white/10 rounded-full -translate-y-16 translate-x-16"></div>
             <div className="absolute right-20 bottom-0 w-16 h-16 bg-white/10 rounded-full translate-y-8"></div>
