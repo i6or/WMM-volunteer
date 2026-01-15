@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Search, Calendar, Clock, MapPin, Users, Presentation, CheckSquare } from "lucide-react";
+import { Search, Calendar, Clock, MapPin, Users, Presentation, CheckSquare, Globe } from "lucide-react";
 import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
 import { type Workshop } from "@shared/schema";
@@ -17,7 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 
 export default function PresenterOpportunities() {
   const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("active");
   const [pendingSignups, setPendingSignups] = useState<Set<string>>(new Set()); // Workshops added to signup list
   const [showSignupForm, setShowSignupForm] = useState(false);
   const [formData, setFormData] = useState({ firstName: "", lastName: "", email: "" });
@@ -234,6 +234,7 @@ export default function PresenterOpportunities() {
 type WorkshopWithProgram = Workshop & {
   programType?: string | null;
   programFormat?: string | null;
+  programLanguage?: string | null;
 };
 
 // Signup Form Dialog Component
@@ -447,7 +448,7 @@ function WorkshopCard({
   // Use workshop.workshopType (from Workshop_Type__c in Salesforce) as the main title
   // This is the workshop type without program name (e.g., "What is Money?", "Managing Your Money")
   // Workshop_Type__c is the existing field in Salesforce - maps to workshop_type in database
-  const workshopType = workshop.workshopType || "Workshop";
+  const workshopType = workshop.workshopType || "Workshop Type";
 
   return (
     <Card className={`overflow-hidden hover:shadow-lg transition-shadow ${isPendingSignup ? 'ring-2 ring-blue-500 bg-blue-50/30' : ''}`} data-testid={`card-workshop-${workshop.id}`}>
@@ -481,74 +482,81 @@ function WorkshopCard({
           {workshopType}
         </h3>
 
-        {/* Date */}
-        <p className="text-sm text-muted-foreground mb-4" data-testid={`text-date-${workshop.id}`}>
-          {formatDate(workshop.date)}
-        </p>
-
         {/* Workshop details */}
         <div className="space-y-2 mb-4">
-          {/* Time */}
-          {workshop.startTime && (
+          {/* Date & Time combined with Calendar icon */}
+          {(workshop.date || workshop.startTime) && (
             <div className="flex items-center text-sm text-muted-foreground">
-              <Clock className="h-4 w-4 mr-2 flex-shrink-0" />
-              <span data-testid={`text-time-${workshop.id}`}>
-                {formatTime(workshop.startTime)}
-                {workshop.endTime && ` - ${formatTime(workshop.endTime)}`}
+              <Calendar className="h-4 w-4 mr-2 flex-shrink-0" />
+              <span data-testid={`text-date-time-${workshop.id}`}>
+                {(() => {
+                  const dateStr = workshop.date ? formatDate(workshop.date) : '';
+                  const timeStr = workshop.startTime ? (() => {
+                    const startTimeFormatted = formatTime(workshop.startTime);
+                    // Only show end time if it exists, is not empty, and is not the default "5:00 PM" (17:00)
+                    if (workshop.endTime && 
+                        workshop.endTime.trim() !== "" && 
+                        workshop.endTime !== "5:00 PM" && 
+                        !workshop.endTime.match(/^17:00/)) {
+                      return `${startTimeFormatted} - ${formatTime(workshop.endTime)}`;
+                    }
+                    return startTimeFormatted;
+                  })() : '';
+                  
+                  if (dateStr && timeStr) {
+                    return `${dateStr}, ${timeStr}`;
+                  } else if (dateStr) {
+                    return dateStr;
+                  } else if (timeStr) {
+                    return timeStr;
+                  }
+                  return '';
+                })()}
               </span>
             </div>
           )}
 
-          {/* Program Type */}
-          {workshop.programType && (
+          {/* Location with MapPin icon - show location or "Virtual" */}
+          {(() => {
+            const formatValue = workshop.format || workshop.programFormat;
+            const isVirtual = formatValue?.toLowerCase().includes('virtual');
+            const hasLocation = workshop.location && workshop.location.trim() !== '';
+            
+            if (hasLocation) {
+              return (
+                <div className="flex items-center text-sm text-muted-foreground">
+                  <MapPin className="h-4 w-4 mr-2 flex-shrink-0" />
+                  <span data-testid={`text-location-${workshop.id}`}>
+                    {workshop.location}
+                  </span>
+                </div>
+              );
+            } else if (isVirtual || !hasLocation) {
+              return (
+                <div className="flex items-center text-sm text-muted-foreground">
+                  <MapPin className="h-4 w-4 mr-2 flex-shrink-0" />
+                  <span data-testid={`text-location-${workshop.id}`}>
+                    Virtual
+                  </span>
+                </div>
+              );
+            }
+            return null;
+          })()}
+
+          {/* Language with Globe icon */}
+          {workshop.programLanguage && (
             <div className="flex items-center text-sm text-muted-foreground">
-              <Presentation className="h-4 w-4 mr-2 flex-shrink-0" />
-              <span data-testid={`text-program-type-${workshop.id}`}>
-                Type: {workshop.programType}
+              <Globe className="h-4 w-4 mr-2 flex-shrink-0" />
+              <span data-testid={`text-language-${workshop.id}`}>
+                {workshop.programLanguage}
               </span>
             </div>
           )}
-
-          {/* Format - from Workshop Format__c field */}
-          {workshop.format && (
-            <div className="flex items-center text-sm text-muted-foreground">
-              <MapPin className="h-4 w-4 mr-2 flex-shrink-0" />
-              <span data-testid={`text-format-${workshop.id}`}>
-                Format: {workshop.format}
-              </span>
-            </div>
-          )}
-
-          {/* Program Format (fallback if workshop format not available) */}
-          {!workshop.format && workshop.programFormat && (
-            <div className="flex items-center text-sm text-muted-foreground">
-              <MapPin className="h-4 w-4 mr-2 flex-shrink-0" />
-              <span data-testid={`text-program-format-${workshop.id}`}>
-                Format: {workshop.programFormat}
-              </span>
-            </div>
-          )}
-
-          {/* Location (fallback if no format) */}
-          {!workshop.format && !workshop.programFormat && workshop.location && (
-            <div className="flex items-center text-sm text-muted-foreground">
-              <MapPin className="h-4 w-4 mr-2 flex-shrink-0" />
-              <span data-testid={`text-location-${workshop.id}`}>
-                {workshop.location}
-              </span>
-            </div>
-          )}
-
         </div>
 
-        {/* Spots and Action button */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <Users className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm text-muted-foreground" data-testid={`text-spots-${workshop.id}`}>
-              {filledSpots}/{totalSpots} presenter
-            </span>
-          </div>
+        {/* Action button - removed presenter count */}
+        <div className="flex items-center justify-end">
           {isPendingSignup ? (
             <Button
               onClick={onRemoveFromSignup}

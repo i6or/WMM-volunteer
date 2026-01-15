@@ -782,9 +782,43 @@ export class DatabaseStorage implements IStorage {
     try {
       console.log('[getAllWorkshops] Starting with filters:', filters);
       
-      // Use simple SQL query - no filters for now to test
-      console.log('[getAllWorkshops] Executing simple SELECT query...');
-      const result = await db.execute(sql`SELECT * FROM workshops ORDER BY date ASC NULLS LAST LIMIT 100`);
+      // Calculate date range: today through next 90 days
+      const today = new Date();
+      today.setHours(0, 0, 0, 0); // Start of today
+      const ninetyDaysLater = new Date(today);
+      ninetyDaysLater.setDate(ninetyDaysLater.getDate() + 90);
+      ninetyDaysLater.setHours(23, 59, 59, 999); // End of day 90 days from now
+      
+      // Build SQL query with filters for active workshops and date range
+      const conditions: any[] = [
+        sql`status = 'active'`,
+        sql`date >= ${today.toISOString()}`,
+        sql`date <= ${ninetyDaysLater.toISOString()}`
+      ];
+      
+      // Add additional filters if provided
+      if (filters?.programId) {
+        conditions.push(sql`program_id = ${filters.programId}`);
+      }
+      
+      if (filters?.search) {
+        const searchPattern = `%${filters.search}%`;
+        conditions.push(sql`(
+          name ILIKE ${searchPattern} OR 
+          title ILIKE ${searchPattern} OR 
+          workshop_type ILIKE ${searchPattern} OR 
+          description ILIKE ${searchPattern}
+        )`);
+      }
+      
+      const query = sql`
+        SELECT * FROM workshops 
+        WHERE ${sql.join(conditions, sql` AND `)}
+        ORDER BY date ASC NULLS LAST
+      `;
+      
+      console.log('[getAllWorkshops] Executing filtered SQL query...');
+      const result = await db.execute(query);
       const rows = result.rows;
       
       console.log(`[getAllWorkshops] Raw SQL query found ${rows.length} workshops`);
@@ -793,7 +827,8 @@ export class DatabaseStorage implements IStorage {
           id: (rows[0] as any).id,
           name: (rows[0] as any).name,
           workshopType: (rows[0] as any).workshop_type,
-          date: (rows[0] as any).date
+          date: (rows[0] as any).date,
+          status: (rows[0] as any).status
         });
       }
       
