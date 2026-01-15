@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Search, Users, Calendar, Clock, CheckSquare, X } from "lucide-react";
+import { Search, CheckSquare, X } from "lucide-react";
 import { ProgramCard } from "@/components/program-card";
 import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
@@ -45,15 +45,6 @@ export default function Home() {
     },
   });
 
-  // Fetch dashboard stats
-  const { data: stats } = useQuery({
-    queryKey: ["/api/stats"],
-    queryFn: async () => {
-      const response = await fetch('/api/stats', { credentials: 'include' });
-      if (!response.ok) throw new Error('Failed to fetch stats');
-      return response.json();
-    },
-  });
 
   // Coach signup mutation for multiple programs
   const signupMutation = useMutation({
@@ -108,58 +99,6 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Quick Stats */}
-        {stats && (
-          <section className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-            <Card>
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-muted-foreground">Active Volunteers</p>
-                    <p className="text-2xl font-bold text-foreground" data-testid="stat-active-volunteers">
-                      {stats.activeVolunteers?.toLocaleString()}
-                    </p>
-                  </div>
-                  <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-                    <Users className="text-green-600 h-5 w-5" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            
-            <Card>
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-muted-foreground">Active Programs</p>
-                    <p className="text-2xl font-bold text-foreground" data-testid="stat-active-programs">
-                      {programs?.length || 0}
-                    </p>
-                  </div>
-                  <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                    <Calendar className="text-blue-600 h-5 w-5" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            
-            <Card>
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-muted-foreground">Hours This Month</p>
-                    <p className="text-2xl font-bold text-foreground" data-testid="stat-monthly-hours">
-                      {stats.monthlyHours?.toLocaleString()}
-                    </p>
-                  </div>
-                  <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-                    <Clock className="text-green-600 h-5 w-5" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </section>
-        )}
 
         {/* Filters Bar */}
         <Card className="mb-6">
