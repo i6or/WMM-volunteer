@@ -18,9 +18,9 @@ export function Header() {
           
           <nav className="hidden md:flex items-center space-x-6">
             <Link
-              href="/coaching-opportunities"
+              href="/"
               className={`text-sm transition-colors ${
-                location === "/coaching-opportunities" || location === "/" ? "text-foreground" : "text-muted-foreground hover:text-foreground"
+                location === "/" ? "text-foreground" : "text-muted-foreground hover:text-foreground"
               }`}
               data-testid="nav-coaching"
             >

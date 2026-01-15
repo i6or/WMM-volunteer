@@ -6,7 +6,6 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Search, Calendar, Clock, MapPin, Users, Presentation, CheckSquare } from "lucide-react";
 import { Header } from "@/components/header";
@@ -19,7 +18,6 @@ import { useToast } from "@/hooks/use-toast";
 export default function PresenterOpportunities() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
-  const [selectedWorkshops, setSelectedWorkshops] = useState<Set<string>>(new Set());
   const [pendingSignups, setPendingSignups] = useState<Set<string>>(new Set()); // Workshops added to signup list
   const [showSignupForm, setShowSignupForm] = useState(false);
   const [formData, setFormData] = useState({ firstName: "", lastName: "", email: "" });
@@ -120,24 +118,8 @@ export default function PresenterOpportunities() {
                 </div>
               </div>
 
-              <div className="flex items-center gap-4">
-                {selectedWorkshops.size > 0 && (
-                  <div className="flex items-center gap-2">
-                    <Badge variant="outline" className="text-sm">
-                      {selectedWorkshops.size} selected
-                    </Badge>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setSelectedWorkshops(new Set())}
-                    >
-                      Clear
-                    </Button>
-                  </div>
-                )}
-                <div className="text-sm text-muted-foreground" data-testid="text-results-count">
-                  Showing {workshops?.length || 0} workshops
-                </div>
+              <div className="text-sm text-muted-foreground" data-testid="text-results-count">
+                Showing {workshops?.length || 0} workshops
               </div>
             </div>
           </CardContent>
@@ -197,25 +179,7 @@ export default function PresenterOpportunities() {
               <WorkshopCard
                 key={workshop.id}
                 workshop={workshop}
-                isSelected={selectedWorkshops.has(workshop.id)}
                 isPendingSignup={pendingSignups.has(workshop.id)}
-                onSelectChange={(selected) => {
-                  const newSelected = new Set(selectedWorkshops);
-                  if (selected) {
-                    if (newSelected.size >= 7) {
-                      toast({
-                        title: "Maximum reached",
-                        description: "You can select up to 7 workshops at a time.",
-                        variant: "destructive",
-                      });
-                      return;
-                    }
-                    newSelected.add(workshop.id);
-                  } else {
-                    newSelected.delete(workshop.id);
-                  }
-                  setSelectedWorkshops(newSelected);
-                }}
                 onSignUp={() => {
                   const newPending = new Set(pendingSignups);
                   if (newPending.size >= 7) {
@@ -442,16 +406,12 @@ function SignupFormDialog({
 // Workshop Card Component
 function WorkshopCard({ 
   workshop, 
-  isSelected, 
   isPendingSignup,
-  onSelectChange,
   onSignUp,
   onRemoveFromSignup
 }: { 
   workshop: WorkshopWithProgram;
-  isSelected: boolean;
   isPendingSignup: boolean;
-  onSelectChange: (selected: boolean) => void;
   onSignUp: () => void;
   onRemoveFromSignup: () => void;
 }) {
@@ -490,23 +450,10 @@ function WorkshopCard({
   const workshopType = workshop.workshopType || "Workshop";
 
   return (
-    <Card className={`overflow-hidden hover:shadow-lg transition-shadow ${isSelected ? 'ring-2 ring-green-500' : ''} ${isPendingSignup ? 'ring-2 ring-blue-500 bg-blue-50/30' : ''}`} data-testid={`card-workshop-${workshop.id}`}>
+    <Card className={`overflow-hidden hover:shadow-lg transition-shadow ${isPendingSignup ? 'ring-2 ring-blue-500 bg-blue-50/30' : ''}`} data-testid={`card-workshop-${workshop.id}`}>
       <CardContent className="p-6">
-        {/* Checkbox for selection */}
+        {/* Badges */}
         <div className="flex items-start justify-between mb-3">
-          <div className="flex items-center space-x-2">
-            <Checkbox
-              checked={isSelected}
-              onCheckedChange={(checked) => onSelectChange(checked === true)}
-              id={`workshop-${workshop.id}`}
-            />
-            <label
-              htmlFor={`workshop-${workshop.id}`}
-              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-            >
-              Select for bulk signup
-            </label>
-          </div>
           <div className="flex gap-2">
             {/* Format badge (In-person/Virtual) */}
             {(workshop.format || workshop.programFormat) && (
@@ -605,16 +552,17 @@ function WorkshopCard({
           {isPendingSignup ? (
             <Button
               onClick={onRemoveFromSignup}
-              variant="outline"
+              className="bg-gray-400 hover:bg-gray-500 text-white"
               size="sm"
               data-testid={`button-remove-${workshop.id}`}
             >
-              Remove
+              Selected
             </Button>
           ) : (
             <Button
               onClick={onSignUp}
               disabled={availableSpots === 0}
+              className="bg-green-600 hover:bg-green-700 text-white"
               data-testid={`button-signup-${workshop.id}`}
               size="sm"
             >

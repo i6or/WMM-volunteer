@@ -2,7 +2,6 @@ import { Calendar, MapPin, Heart, Users, Presentation, Globe } from "lucide-reac
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
 import { type Program } from "@shared/schema";
 
 interface ProgramCardProps {
@@ -85,33 +84,24 @@ export function ProgramCard({ program, isSelected = false, onSelectChange }: Pro
   return (
     <Card className={`overflow-hidden hover:shadow-lg transition-shadow ${isSelected ? 'ring-2 ring-green-500' : ''}`} data-testid={`card-program-${program.id}`}>
       <CardContent className="p-6">
-        {/* Checkbox for selection */}
+        {/* Type badge, Status badge, and Primary Program Partner */}
         <div className="flex items-start justify-between mb-3">
-          <div className="flex items-center space-x-2">
-            {onSelectChange && (
-              <Checkbox
-                checked={isSelected}
-                onCheckedChange={(checked) => onSelectChange(checked === true)}
-                id={`program-${program.id}`}
-              />
-            )}
-            <div>
-              <div className="flex flex-wrap gap-2 mb-2">
-                {program.programType && (
-                  <Badge className={getTypeColor(program.programType)} data-testid={`badge-type-${program.id}`}>
-                    {program.programType}
-                  </Badge>
-                )}
-                {program.status && (
-                  <Badge variant="outline" className={`text-xs ${getStatusColor(program.status)}`} data-testid={`badge-status-${program.id}`}>
-                    {program.status.charAt(0).toUpperCase() + program.status.slice(1)}
-                  </Badge>
-                )}
-              </div>
-              <p className="text-sm text-muted-foreground" data-testid={`text-partner-${program.id}`}>
-                {program.primaryProgramPartner || "Women's Money Matters"}
-              </p>
+          <div>
+            <div className="flex flex-wrap gap-2 mb-2">
+              {program.programType && (
+                <Badge className={getTypeColor(program.programType)} data-testid={`badge-type-${program.id}`}>
+                  {program.programType}
+                </Badge>
+              )}
+              {program.status && (
+                <Badge variant="outline" className={`text-xs ${getStatusColor(program.status)}`} data-testid={`badge-status-${program.id}`}>
+                  {program.status.charAt(0).toUpperCase() + program.status.slice(1)}
+                </Badge>
+              )}
             </div>
+            <p className="text-sm text-muted-foreground" data-testid={`text-partner-${program.id}`}>
+              {program.primaryProgramPartner || "Women's Money Matters"}
+            </p>
           </div>
           {!onSelectChange && (
             <Button variant="ghost" size="icon" data-testid={`button-favorite-${program.id}`}>
@@ -182,7 +172,7 @@ export function ProgramCard({ program, isSelected = false, onSelectChange }: Pro
           )}
         </div>
 
-        {/* Coach count */}
+        {/* Coach count and Sign Up button */}
         <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-100">
           <div className="flex items-center">
             <Users className="h-4 w-4 text-muted-foreground" />
@@ -191,9 +181,15 @@ export function ProgramCard({ program, isSelected = false, onSelectChange }: Pro
             </span>
           </div>
           {onSelectChange && (
-            <div className="text-xs text-muted-foreground">
-              {isSelected ? "Selected" : isFull ? "Full" : "Available"}
-            </div>
+            <Button
+              onClick={() => onSelectChange(!isSelected)}
+              disabled={isFull}
+              className={isSelected ? "bg-gray-400 hover:bg-gray-500 text-white" : "bg-green-600 hover:bg-green-700 text-white"}
+              size="sm"
+              data-testid={`button-signup-${program.id}`}
+            >
+              {isSelected ? "Selected" : isFull ? "Full" : "Sign Up"}
+            </Button>
           )}
         </div>
 
