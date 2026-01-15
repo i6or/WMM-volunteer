@@ -2733,8 +2733,8 @@ print(json.dumps({
         return res.status(400).json({ message: "Workshop IDs array is required" });
       }
 
-      if (workshopIds.length > 10) {
-        return res.status(400).json({ message: "Maximum 10 workshops can be selected at once" });
+      if (workshopIds.length > 7) {
+        return res.status(400).json({ message: "Maximum 7 workshops can be selected at once" });
       }
 
       // Check presenter cap (max 7 workshops) if role is presenter

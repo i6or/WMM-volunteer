@@ -202,10 +202,10 @@ export default function PresenterOpportunities() {
                 onSelectChange={(selected) => {
                   const newSelected = new Set(selectedWorkshops);
                   if (selected) {
-                    if (newSelected.size >= 10) {
+                    if (newSelected.size >= 7) {
                       toast({
                         title: "Maximum reached",
-                        description: "You can select up to 10 workshops at a time.",
+                        description: "You can select up to 7 workshops at a time.",
                         variant: "destructive",
                       });
                       return;
@@ -218,10 +218,10 @@ export default function PresenterOpportunities() {
                 }}
                 onSignUp={() => {
                   const newPending = new Set(pendingSignups);
-                  if (newPending.size >= 10) {
+                  if (newPending.size >= 7) {
                     toast({
                       title: "Maximum reached",
-                      description: "You can sign up for up to 10 workshops at a time.",
+                      description: "You can sign up for up to 7 workshops at a time.",
                       variant: "destructive",
                     });
                     return;
