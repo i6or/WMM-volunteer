@@ -676,6 +676,25 @@ print(json.dumps({
         });
       }
 
+      // Check existing coach signups by email (cap: max 4 programs)
+      const existingSignupsResult = await db.execute(sql`
+        SELECT COUNT(DISTINCT program_id) as count
+        FROM coach_signups
+        WHERE email = ${email}
+      `);
+      const existingCount = Number(existingSignupsResult.rows[0]?.count || 0);
+      const newProgramCount = programIds.length;
+      const totalCount = existingCount + newProgramCount;
+
+      if (totalCount > 4) {
+        return res.status(400).json({
+          message: `You have already signed up for ${existingCount} program${existingCount !== 1 ? 's' : ''}. With these ${newProgramCount} additional program${newProgramCount !== 1 ? 's' : ''}, you would exceed the maximum of 4 programs. If you are interested in volunteering for more programs, please email Ariana at acontreras@womensmoneymatters.org to coordinate.`,
+          existingCount,
+          requestedCount: newProgramCount,
+          maxAllowed: 4
+        });
+      }
+
       // Validate that programs exist
       const validProgramIds: string[] = [];
       for (const programId of programIds) {
@@ -772,6 +791,32 @@ print(json.dumps({
     } catch (error) {
       console.error('[COACH-SIGNUP] Get error:', error);
       res.status(500).json({ message: "Failed to fetch coach signups" });
+    }
+  });
+
+  // Get count of workshop signups by email (for presenter cap check)
+  app.get("/api/workshop-signups/count", async (req, res) => {
+    try {
+      const { email } = req.query;
+
+      if (!email) {
+        return res.status(400).json({ message: "Email is required" });
+      }
+
+      // Count workshop signups by email through participants table
+      const result = await db.execute(sql`
+        SELECT COUNT(DISTINCT pw.workshop_id) as count
+        FROM participant_workshops pw
+        INNER JOIN participants p ON pw.participant_id = p.id
+        WHERE p.email = ${email}
+          AND pw.notes LIKE '%Role: presenter%'
+      `);
+
+      const count = result.rows[0]?.count || 0;
+      res.json({ count: Number(count), email });
+    } catch (error) {
+      console.error('[WORKSHOP-SIGNUP-COUNT] Error:', error);
+      res.status(500).json({ message: "Failed to count workshop signups" });
     }
   });
 
@@ -2457,6 +2502,26 @@ print(json.dumps({
         return res.status(400).json({ message: "Workshop ID is required" });
       }
 
+      // Check presenter cap (max 7 workshops) if role is presenter
+      if (role === "presenter" && email) {
+        const existingCountResult = await db.execute(sql`
+          SELECT COUNT(DISTINCT pw.workshop_id) as count
+          FROM participant_workshops pw
+          INNER JOIN participants p ON pw.participant_id = p.id
+          WHERE p.email = ${email}
+            AND pw.notes LIKE '%Role: presenter%'
+        `);
+        const existingCount = Number(existingCountResult.rows[0]?.count || 0);
+        
+        if (existingCount >= 7) {
+          return res.status(400).json({
+            message: "You have already signed up for 7 workshops (the maximum allowed). If you are interested in volunteering for more workshops, please email Ariana at acontreras@womensmoneymatters.org to coordinate.",
+            existingCount,
+            maxAllowed: 7
+          });
+        }
+      }
+
       // Get workshop details
       const workshop = await storage.getWorkshop(workshopId);
       if (!workshop) {
@@ -2559,6 +2624,28 @@ print(json.dumps({
 
       if (workshopIds.length > 10) {
         return res.status(400).json({ message: "Maximum 10 workshops can be selected at once" });
+      }
+
+      // Check presenter cap (max 7 workshops) if role is presenter
+      if (role === "presenter" && email) {
+        const existingCountResult = await db.execute(sql`
+          SELECT COUNT(DISTINCT pw.workshop_id) as count
+          FROM participant_workshops pw
+          INNER JOIN participants p ON pw.participant_id = p.id
+          WHERE p.email = ${email}
+            AND pw.notes LIKE '%Role: presenter%'
+        `);
+        const existingCount = Number(existingCountResult.rows[0]?.count || 0);
+        const totalCount = existingCount + workshopIds.length;
+        
+        if (totalCount > 7) {
+          return res.status(400).json({
+            message: `You have already signed up for ${existingCount} workshop${existingCount !== 1 ? 's' : ''}. With these ${workshopIds.length} additional workshop${workshopIds.length !== 1 ? 's' : ''}, you would exceed the maximum of 7 workshops. If you are interested in volunteering for more workshops, please email Ariana at acontreras@womensmoneymatters.org to coordinate.`,
+            existingCount,
+            requestedCount: workshopIds.length,
+            maxAllowed: 7
+          });
+        }
       }
 
       // Get volunteer by email if provided, otherwise create a temporary record

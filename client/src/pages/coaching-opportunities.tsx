@@ -329,6 +329,9 @@ export default function CoachingOpportunities() {
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
                         <CardTitle className="text-2xl mb-2">{program.name}</CardTitle>
+                        {program.description && (
+                          <p className="text-sm text-green-100 mb-3 mt-2">{program.description}</p>
+                        )}
                         <div className="flex flex-wrap gap-4 text-sm text-green-100 mt-2">
                           {program.startDate && (
                             <div className="flex items-center gap-1">

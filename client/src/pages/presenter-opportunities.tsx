@@ -507,11 +507,26 @@ function WorkshopCard({
               Select for bulk signup
             </label>
           </div>
-          {workshop.topic && (
-            <Badge className="bg-blue-100 text-blue-800" data-testid={`badge-topic-${workshop.id}`}>
-              {workshop.topic}
-            </Badge>
-          )}
+          <div className="flex gap-2">
+            {/* Format badge (In-person/Virtual) */}
+            {(workshop.format || workshop.programFormat) && (
+              <Badge 
+                className={
+                  (workshop.format || workshop.programFormat)?.toLowerCase().includes('virtual') 
+                    ? 'bg-purple-100 text-purple-800' 
+                    : 'bg-orange-100 text-orange-800'
+                }
+                data-testid={`badge-format-${workshop.id}`}
+              >
+                {workshop.format || workshop.programFormat}
+              </Badge>
+            )}
+            {workshop.topic && (
+              <Badge className="bg-blue-100 text-blue-800" data-testid={`badge-topic-${workshop.id}`}>
+                {workshop.topic}
+              </Badge>
+            )}
+          </div>
         </div>
 
         {/* Workshop Type (main title - from SF Type field, no program name) */}

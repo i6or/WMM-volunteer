@@ -118,6 +118,13 @@ export function ProgramCard({ program }: ProgramCardProps) {
           {getDateRange()}
         </p>
 
+        {/* Description */}
+        {program.description && (
+          <p className="text-sm text-foreground mb-4" data-testid={`text-description-${program.id}`}>
+            {program.description}
+          </p>
+        )}
+
         {/* Program details */}
         <div className="space-y-2 mb-4">
           {/* Number of Workshops with Frequency */}
