@@ -414,6 +414,27 @@ export default function CoachingOpportunities() {
                                       Full
                                     </Badge>
                                   )}
+                                  {!isSignedUpForAll && (isProgramLevel ? programLevelAvailable > 0 : !isTypeFull) && (
+                                    <Button
+                                      onClick={() => {
+                                        if (isProgramLevel) {
+                                          bulkSignupMutation.mutate({ programId: program.id, category: type });
+                                        } else {
+                                          // For non-program-level roles, sign up for all opportunities of this type
+                                          typeOpps.forEach(opp => {
+                                            if (!isFull(opp) && !isSignedUp(opp.id)) {
+                                              signupMutation.mutate(opp.id);
+                                            }
+                                          });
+                                        }
+                                      }}
+                                      disabled={bulkSignupMutation.isPending || signupMutation.isPending}
+                                      className="bg-green-600 hover:bg-green-700"
+                                      size="sm"
+                                    >
+                                      {bulkSignupMutation.isPending || signupMutation.isPending ? "Signing up..." : "Sign Up"}
+                                    </Button>
+                                  )}
                                 </div>
                               </div>
                             </AccordionTrigger>
@@ -481,7 +502,16 @@ export default function CoachingOpportunities() {
                                                 <Badge variant="outline" className="border-gray-300 text-gray-500">
                                                   Full
                                                 </Badge>
-                                              ) : null}
+                                              ) : (
+                                                <Button
+                                                  onClick={() => signupMutation.mutate(opp.id)}
+                                                  disabled={signupMutation.isPending}
+                                                  className="bg-green-600 hover:bg-green-700"
+                                                  size="sm"
+                                                >
+                                                  {signupMutation.isPending ? "Signing up..." : "Sign Up"}
+                                                </Button>
+                                              )}
                                             </>
                                           )}
                                           {isProgramLevel && (
